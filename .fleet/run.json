@@ -1,0 +1,12 @@
+{
+  "configurations": [
+    {
+      "type": "go",
+      "name": "gud",
+      "goExecPath": "/usr/local/go/bin/go",
+      "buildTargets": [
+        "$PROJECT_DIR$/main.go"
+      ]
+    }
+  ]
+}
