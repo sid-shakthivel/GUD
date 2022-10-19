@@ -8,14 +8,17 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"math/rand"
 	"net"
 	"os"
 	"strconv"
 	"strings"
+	"sort"
 )
 
 // Items are located around the map (need to be generated on startup)
+
 type Item struct {
 	description string
 	coordinates Point
@@ -42,21 +45,21 @@ func (player Player) move(modifiers []string) {
 
 	for i := 0; i < distance; i++ {
 		switch modifiers[0] {
-		case "North":
-			if player.isWithinBoundry(Point{player.coordinates.x, player.coordinates.y.(int) + 1}) {
-				player.coordinates.y = player.coordinates.y.(int) + 1
+		case "north":
+			if player.isWithinBoundry(Point{player.coordinates.x, player.coordinates.y + 1, 0, 0, nil }) {
+				player.coordinates.y = player.coordinates.y + 1
 			}
-		case "South":
-			if player.isWithinBoundry(Point{player.coordinates.x, player.coordinates.y.(int) - 1}) {
-				player.coordinates.y = player.coordinates.y.(int) - 1
+		case "south":
+			if player.isWithinBoundry(Point{player.coordinates.x, player.coordinates.y - 1, 0, 0, nil}) {
+				player.coordinates.y = player.coordinates.y - 1
 			}
-		case "East":
-			if player.isWithinBoundry(Point{player.coordinates.x.(int) + 1, player.coordinates.y}) {
-				player.coordinates.x = player.coordinates.x.(int) + 1
+		case "east":
+			if player.isWithinBoundry(Point{player.coordinates.x + 1, player.coordinates.y, 0, 0, nil}) {
+				player.coordinates.x = player.coordinates.x + 1
 			}
-		case "West":
-			if player.isWithinBoundry(Point{player.coordinates.x.(int) - 1, player.coordinates.y}) {
-				player.coordinates.x = player.coordinates.x.(int) - 1
+		case "west":
+			if player.isWithinBoundry(Point{player.coordinates.x - 1, player.coordinates.y, 0, 0, nil}) {
+				player.coordinates.x = player.coordinates.x - 1
 			}
 		default:
 			panic("Random direction")
@@ -65,14 +68,14 @@ func (player Player) move(modifiers []string) {
 }
 
 func (player Player) isWithinBoundry(newCoordinate Point) bool {
-	if newCoordinate.x.(int) > 20 || newCoordinate.y.(int) >= 40 || world[newCoordinate.x.(int)][newCoordinate.y.(int)] == 0 {
+	if newCoordinate.x > 20 || newCoordinate.y >= 40 || world[newCoordinate.x][newCoordinate.y] == 0 {
 		return false
 	}
 	return true
 }
 
 /*
-	Signature `scan {distnace}`
+	Signature `scan {distance}`
 	Allows player to scan nearby to idenify items and teleportation in all directions for a unit
 */
 func (player Player) scan(modifiers []string) {
@@ -85,6 +88,125 @@ func (player Player) scan(modifiers []string) {
 
 	for i := 0; i < distance; i++ {
 		// Check for each direction
+	}
+}
+
+/*
+	Signature `investigate {item}`
+	Allows player to investigate items they encounter including hotspots
+*/
+func (player Player) investigate(modifiers []string) {
+	// Check if item is within the eventObject dictionary and run functions
+	eventObject[modifiers[0]](player)
+}
+
+// Check if a point array contains a point with the same coordiantes
+func (point Point) ContainsPoint(points []Point) bool {
+	for i := range points {
+		if points[i].x == point.x && points[i].y == point.y {
+			return true
+		}
+	}
+	return false
+}
+
+/*
+	Signature 'locate {item name}`
+	Uses Dijkstra's path finding algorithm to work out the shortest path between the user and an item
+	Dispays the path to the user
+*/
+func (player Player) locate(modifiers []string) []Point {
+	// Find item position in world
+	itemIndex := Find(player.inventory, func (item Item) bool {
+		return item.description == modifiers[0]
+	})
+
+	if itemIndex > -1 {
+		itemPosition := player.inventory[itemIndex].coordinates
+
+		fmt.Println("Item Position is ", itemPosition)
+		fmt.Println("Player Position is ", player.coordinates)
+
+		var openNodes []Point // Nodes that have calculated cost
+		var closedNodes []Point // Nodes that haven't calculated cost
+
+		openNodes = append(openNodes, player.coordinates) // Add starting node
+
+		for len(openNodes) > 0 {
+			// Sort the open nodes to get the one with the lowest heuristic cost (cost to the actual node)
+			sort.SliceStable(openNodes, func(i, j int) bool {
+				return openNodes[i].hcost < openNodes[j].hcost
+			})
+
+			// Acknowledge the current node has been accounted for and use it
+			currentNode := openNodes[0]
+			closedNodes = append(closedNodes, currentNode)
+			openNodes = RemoveAtIndex(openNodes, 0)
+
+			// If we have found the target, alert the user (for now)
+
+			if currentNode.x == itemPosition.x && currentNode.y == itemPosition.y {
+				path := make([]Point, 0)
+
+				node := currentNode
+				path = append(path, node)
+
+				for node.parent != nil {
+					node = *node.parent
+					path = append(path, node)
+				}
+
+				return path
+			} else {
+				// Create a list of adjacent nodes which are walkable from the current node and not closed
+
+				neighbour1 := Point{min(currentNode.x + 1, WIDTH - 1), currentNode.y, 0, 0, nil }
+				neighbour2 := Point{max(currentNode.x - 1, 0), currentNode.y, 0, 0, nil}
+				neighbour3 := Point{currentNode.x, min(currentNode.y + 1, HEIGHT - 1), 0, 0, nil}
+				neighbour4 := Point{currentNode.x, max(currentNode.y - 1, 0), 0, 0, nil}
+				neighbour5 := Point{min(currentNode.x + 1, WIDTH - 1), min(currentNode.y + 1, HEIGHT - 1), 0, 0, nil }
+				neighbour6 := Point{min(currentNode.x + 1, WIDTH -1), max(currentNode.y - 1, 0), 0, 0, nil}
+				neighbour7 := Point{max(currentNode.x - 1, 0), min(currentNode.y + 1, HEIGHT - 1), 0, 0, nil}
+				neighbour8 := Point{max(currentNode.x - 1, 0), max(currentNode.y - 1, 0), 0, 0, nil}
+
+				neighours := [8]Point { neighbour1, neighbour2, neighbour3, neighbour4, neighbour5, neighbour6, neighbour7, neighbour8 }
+
+				for _, neighbour := range neighours {
+					// Check if it's walkable (world[neighbour.x][neighbour.y] == 1) and not on the closed list
+					if !neighbour.ContainsPoint(closedNodes) {
+						cost := calculateHeuristicCost(currentNode, neighbour) + currentNode.gcost
+
+						if cost < neighbour.gcost || !neighbour.ContainsPoint(openNodes) {
+							neighbour.gcost = cost
+							neighbour.hcost = calculateHeuristicCost(neighbour, itemPosition)
+							neighbour.parent = &currentNode
+						}
+
+						if !neighbour.ContainsPoint(openNodes) {
+							openNodes = append(openNodes, neighbour)
+						}
+					}
+				}
+			}
+		}
+	}
+	println("Lol failed")
+
+	return make([]Point, 0)
+}
+func calculateHeuristicCost(nodeA Point, nodeB Point) int {
+	/*
+		Uses Manhattan distance in which we check nodes horizontally and vertically (not diagonally) - named because it's similar to calculating number of city blocks
+		Delta X + Delta Y
+	*/
+
+	deltaX := int(math.Abs(float64(nodeA.x - nodeB.x)))
+	deltaY := int(math.Abs(float64(nodeA.y - nodeB.y)))
+
+	if deltaX > deltaY {
+		return 14 * deltaY + 10 * (deltaX - deltaY)
+	} else {
+		return 14 * deltaX + 10 * (deltaY - deltaX)
 	}
 }
 
@@ -153,14 +275,13 @@ func (player Player) combine(modifiers []string) {
 		RemoveAtIndex(player.inventory, firstItemPosition)
 		RemoveAtIndex(player.inventory, secondItemPosition)
 
-		// Possibly should check if items can be combined - make a random method for that
+		// Possibly should check if items can be combined - make a random method for that maybe
 	} else {
 		panic("User does not possess both items")
 	}
 }
 
-// Generic function which returns the index of a slice entry
-func Find[T any](s []T, f func(T) bool) int {
+func Find[T any] (s []T, f func(T) bool) int {
 	for i := range s {
 		if f(s[i]) == true {
 			return i
@@ -169,9 +290,34 @@ func Find[T any](s []T, f func(T) bool) int {
 	return -1
 }
 
+func Contains[T comparable] (s []T, e T) bool {
+	for i := range s {
+		if s[i] == e {
+			return true
+		}
+	}
+	return false
+}
+
 func RemoveAtIndex[T any] (s []T, index int) []T {
 	s[index] = s[len(s)-1]
 	return s[:len(s)-1]
+}
+
+func GetKeys[T comparable, U any] (m map[T]U) []T {
+	keys := make([]T, 0, len(m))
+	for k, _ := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+func GetValues[T comparable, U any] (m map[T]U) [] U {
+	values := make([]U, 0, len(m))
+	for _, v := range m {
+		values = append(values, v)
+	}
+	return values
 }
 
 // Map dimensions
@@ -181,20 +327,39 @@ const HEIGHT = 40
 // Create a 20 * 40 pixel array which stores the map to create a perfect square
 var world [WIDTH][HEIGHT]int
 
-// Create a global list of items which are present within the cave (may or may not modify after init)
+// Global list of items which are present within the cave
 var items []Item
+
+// Global list of strings which map to eventObject dictionary
+var eventObjects []string
 
 func move(modifiers []string) {
 	fmt.Println("We move'd")
 }
 
-// Create dictionary actions which players can undertake
+// Create dictionary called actions which players can undertake
 var actions = map[string]func(modifiers []string){
 	"move": move,
 }
 
+/*
+	Dictionary called eventObject of strings to functions which transmute the player eventObjects
+*/
+var eventObject = map[string]func(state Player) {
+	"hotspot": func(state Player) {
+		// Finding a hotspot will trigger this method which moves the player to a random location
+
+		fmt.Println("You have found a hotspot - prepare to be deported")
+		newPos := findFreeLocationInDungeon()
+		state.coordinates = newPos
+	},
+}
 type Point struct {
-	x, y interface{}
+	x int
+	y int
+	gcost int // Cost of start point to end goal
+	hcost int // Heuristic estimated cost from node to goal
+	parent *Point
 }
 
 type Directions int
@@ -254,7 +419,7 @@ func findFreeLocationInDungeon() Point {
 	pos := world[randX][randY]
 
 	if pos == 1 {
-		return Point{randX, randY}
+		return Point{randX, randY, 0, 0, nil}
 	} else {
 		return findFreeLocationInDungeon()
 	}
@@ -262,7 +427,7 @@ func findFreeLocationInDungeon() Point {
 
 func initaliseGame() {
 	// Pick random start point within the array
-	var point = Point{WIDTH / 2, HEIGHT / 2}
+	var point = Point{WIDTH / 2, HEIGHT / 2, 0, 0, nil}
 
 	// Generate a number of walks to make an actual dungeon
 	for i := 0; i < 50; i++ {
@@ -276,7 +441,7 @@ func initaliseGame() {
 			calculateNewPoint(direction, &point)
 
 			// Tiles become 0 on default and 1 when walked on to generate dungeon rooms
-			world[point.x.(int)][point.y.(int)] = 1
+			world[point.x][point.y] = 1
 		}
 	}
 
@@ -294,19 +459,25 @@ func initaliseGame() {
 		items = append(items, Item{item, randomPoint, true})
 	}
 
+	// Generate a number of event objects located around the map
+	for i := 0; i < rand.Intn(10); i++ {
+		randomPoint := findFreeLocationInDungeon()
+		items = append(items, Item{GetKeys(eventObject)[rand.Intn(len(eventObject))], randomPoint, true})
+	}
+
 	printMap()
 }
 
 func calculateNewPoint(direction Directions, point *Point) {
 	switch direction {
 	case North:
-		(*point).y = min((*point).y.(int)+1, HEIGHT)
+		(*point).y = min((*point).y+1, HEIGHT)
 	case South:
-		(*point).y = max((*point).y.(int)-1, 0)
+		(*point).y = max((*point).y-1, 0)
 	case East:
-		(*point).x = min((*point).x.(int)+1, WIDTH)
+		(*point).x = min((*point).x+1, WIDTH)
 	case West:
-		(*point).x = max((*point).x.(int)-1, 0)
+		(*point).x = max((*point).x-1, 0)
 	case NorthWest:
 		calculateNewPoint(North, point)
 		calculateNewPoint(West, point)
@@ -388,7 +559,21 @@ func max(x, y int) int {
 
 func main() {
 	initaliseGame()
-	actions["move"]([]string{})
+//	actions["move"]([]string{})
+
+	args := make([]string, 1)
+	inventory := make([]Item, 1)
+	args[0] = "blonde"
+	inventory[0] = Item{ "blonde", Point {15, 20, 0, 0, nil}, true}
+
+	player := Player{findFreeLocationInDungeon(), inventory}
+
+	fmt.Println(player.coordinates)
+
+	player.locate(args)
+
+	fmt.Println("Finished execution")
+
 	startServer()
 }
 
