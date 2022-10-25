@@ -6,25 +6,15 @@ import (
 	"sort"
 	"strconv"
 	"net"
-	"unicode"
 )
 
 // Players serve as clients to the server which navigate around the world
 type Player struct {
-	coordinates Point
+	coordinates *Point
 	inventory   []Item
 	conn net.Conn
 	name string
 	actions map[string]func(modifiers []string)
-}
-
-func isInt(s string) bool {
-	for _, c := range s {
-		if !unicode.IsDigit(c) {
-			return false
-		}
-	}
-	return true
 }
 
 /*
@@ -33,7 +23,8 @@ Player coordinates are manipulated in a direction until they hit distance or a w
 */
 func (player Player) move(modifiers []string) {
 	// Parse input correctly
-	if len(modifiers) < 2 || !isInt(modifiers[1]) {
+
+	if len(modifiers) < 2 || !isInt(modifiers[1]) || !Contains(GetKeys(directions), modifiers[0]) {
 		player.displayError()
 		return
 	}
@@ -44,34 +35,22 @@ func (player Player) move(modifiers []string) {
 	}
 
 	for i := 0; i < distance; i++ {
-		switch modifiers[0] {
-		case "north":
-			if player.isWithinBoundry(Point{player.coordinates.x, player.coordinates.y + 1, 0, 0, nil }) {
-				player.coordinates.y = player.coordinates.y + 1
-			}
-		case "south":
-			if player.isWithinBoundry(Point{player.coordinates.x, player.coordinates.y - 1, 0, 0, nil}) {
-				player.coordinates.y = player.coordinates.y - 1
-			}
-		case "east":
-			if player.isWithinBoundry(Point{player.coordinates.x + 1, player.coordinates.y, 0, 0, nil}) {
-				player.coordinates.x = player.coordinates.x + 1
-			}
-		case "west":
-			if player.isWithinBoundry(Point{player.coordinates.x - 1, player.coordinates.y, 0, 0, nil}) {
-				player.coordinates.x = player.coordinates.x - 1
-			}
-		default:
-			player.displayError()
+		oldCoordinates := player.coordinates
+		getNewPoint(modifiers[0], player.coordinates)
+
+		if !player.isWithinPlayableRegion() {
+			player.coordinates = oldCoordinates
+			break
 		}
 	}
 
 	writeToPlayer(player.conn, "- Your position is [" + strconv.Itoa(player.coordinates.x) + "," + strconv.Itoa(player.coordinates.y) + "]")
 	writeToPlayer(player.conn, "The map is below")
+	player.printMap()
 }
 
-func (player Player) isWithinBoundry(newCoordinate Point) bool {
-	if newCoordinate.x > 20 || newCoordinate.y >= 40 || getWorldInstance().worldMap[newCoordinate.x][newCoordinate.y] == 0 {
+func (player Player) isWithinPlayableRegion() bool {
+	if (*player.coordinates).y > HEIGHT || (*player.coordinates).x > WIDTH || getWorldInstance().worldMap[(*player.coordinates).x][(*player.coordinates).y] == 1 {
 		return false
 	}
 	return true
@@ -141,7 +120,7 @@ func (player Player) locate(modifiers []string) {
 		var openNodes []Point // Nodes that have calculated cost
 		var closedNodes []Point // Nodes that haven't calculated cost
 
-		openNodes = append(openNodes, player.coordinates) // Add starting node
+		openNodes = append(openNodes, *player.coordinates) // Add starting node
 
 		for len(openNodes) > 0 {
 			// Sort the open nodes to get the one with the lowest heuristic cost (cost to the actual node)
@@ -292,14 +271,38 @@ func (player Player) quit(modifiers []string) {
 
 func (player Player) help(modifiers []string) {
 	writeToPlayer(player.conn, "Here lies the possible combinations once can enter")
-	writeToPlayer(player.conn, "\nMove\nScan\nInvestigate\nLocate\nPickup\nDrop\nCombine")
-
-//	for _, action := range GetKeys(player.actions) {
-//		writeToPlayer(player.conn, "test " + action)
-//	}
+	writeToPlayer(player.conn, "Move\nScan\nInvestigate\nLocate\nPickup\nDrop\nCombine\nStats\nQuit\nHelp")
 }
 func (player Player) displayError() {
 	player.conn.Write([]byte("\nUnknown or invalid command \n\n"))
+}
+
+func (player Player) viewStats(modifiers []string) {
+	player.conn.Write([]byte("\nName : " + player.name + "\n"))
+	player.conn.Write([]byte("Position: [" + strconv.Itoa(player.coordinates.x)  + "," + strconv.Itoa(player.coordinates.y) + "]" + "\n"))
+	player.conn.Write([]byte("Inventory contents: "))
+
+	for _, item := range player.inventory {
+		player.conn.Write([]byte(item.description))
+	}
+	player.conn.Write([]byte("\n\n"))
+}
+
+func (player Player) printMap() {
+	worldMap := getWorldInstance().worldMap
+	for i := 0; i < WIDTH; i++ {
+		for j := 0; j < HEIGHT; j++ {
+			if i == player.coordinates.x && j == player.coordinates.y {
+				player.conn.Write([]byte("X"))
+			} else if worldMap[i][j] == 1 {
+				player.conn.Write([]byte("#"))
+			} else {
+				player.conn.Write([]byte("/"))
+			}
+		}
+		player.conn.Write([]byte("\n"))
+	}
+
 }
 
 func calculateHeuristicCost(nodeA Point, nodeB Point) int {

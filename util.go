@@ -2,7 +2,7 @@ package main
 
 import (
 	"net"
-	"fmt"
+	"unicode"
 )
 
 func min(x, y int) int {
@@ -17,6 +17,15 @@ func max(x, y int) int {
 		return x
 	}
 	return 0
+}
+
+func isInt(s string) bool {
+	for _, c := range s {
+		if !unicode.IsDigit(c) {
+			return false
+		}
+	}
+	return true
 }
 
 func Find[T any] (s []T, f func(T) bool) int {
@@ -57,7 +66,6 @@ func RemoveAtIndex[T any] (s []T, index int) []T {
 func GetKeys[T comparable, U any] (m map[T]U) []T {
 	keys := make([]T, 0, len(m))
 	for k, _ := range m {
-		fmt.Println(k)
 		keys = append(keys, k)
 	}
 	return keys
@@ -81,5 +89,5 @@ func GetValues[T comparable, U any] (m map[T]U) [] U {
 }
 
 func writeToPlayer(conn net.Conn, text string) {
-	conn.Write([]byte("$ " + text + "\n\n"))
+	conn.Write([]byte(text + "\n\n"))
 }

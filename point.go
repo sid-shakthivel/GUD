@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math/rand"
 )
 
@@ -13,56 +12,49 @@ type Point struct {
 	parent *Point
 }
 
-type Directions int
-
-const (
-	North Directions = iota
-	South
-	East
-	West
-	NorthWest
-	NorthEast
-	SouthWest
-	SouthEast
-)
-
-func pickRandomDirection() Directions {
-	switch rand.Intn(8) + 0 {
-	case 0:
-		return North
-	case 1:
-		return South
-	case 2:
-		return East
-	case 3:
-		return West
-	case 4:
-		return NorthWest
-	case 5:
-		return NorthEast
-	case 6:
-		return SouthWest
-	case 7:
-		return SouthEast
-	default:
-		return West
-	}
+func NewPoint(x int, y int) *Point {
+	p := new(Point)
+	p.x = x
+	p.y = y
+	return p
 }
 
-func printMap() {
-	for i := 0; i < WIDTH; i++ {
-		for j := 0; j < HEIGHT; j++ {
-			if getWorldInstance().worldMap[i][j] == 1 {
-				fmt.Print("#")
-			} else {
-				fmt.Print("~")
-			}
-		}
-		fmt.Println()
-	}
+var directions = map[string]func(point *Point) {
+	"north": func(point *Point) {
+		point.y = min((*point).y+1, HEIGHT)
+	},
+	"south": func(point *Point) {
+		point.y = max((*point).y-1, 0)
+	},
+	"east": func(point *Point) {
+		point.x = min((*point).x+1, WIDTH)
+	},
+	"west": func(point *Point) {
+		point.x = max((*point).x-1, 0)
+	},
+	"north-east": func(point *Point) {
+		point.y = min((*point).y+1, HEIGHT)
+		point.x = min((*point).x+1, WIDTH)
+	},
+	"north-west": func(point *Point) {
+		point.y = min((*point).y+1, HEIGHT)
+		point.x = max((*point).x-1, 0)
+	},
+	"south-east": func(point *Point) {
+		point.y = max((*point).y-1, 0)
+		point.x = min((*point).x+1, WIDTH)
+	},
+	"south-west": func(point *Point) {
+		point.y = max((*point).y-1, 0)
+		point.x = max((*point).x-1, 0)
+	},
 }
 
-func findFreeLocationInDungeon() Point {
+func pickRandomDirection() string {
+	directionsList := GetKeys(directions)
+	return directionsList[len(directionsList) - 1]
+}
+func findFreeLocationInDungeon() *Point {
 	// Get random coordinate and ensure dungeon space exists there
 	randX := rand.Intn(WIDTH)
 	randY := rand.Intn(HEIGHT)
@@ -70,33 +62,12 @@ func findFreeLocationInDungeon() Point {
 	pos := getWorldInstance().worldMap[randX][randY]
 
 	if pos == 1 {
-		return Point{randX, randY, 0, 0, nil}
+		return NewPoint(randX, randY)
 	} else {
 		return findFreeLocationInDungeon()
 	}
 }
 
-func calculateNewPoint(direction Directions, point *Point) {
-	switch direction {
-	case North:
-		(*point).y = min((*point).y+1, HEIGHT)
-	case South:
-		(*point).y = max((*point).y-1, 0)
-	case East:
-		(*point).x = min((*point).x+1, WIDTH)
-	case West:
-		(*point).x = max((*point).x-1, 0)
-	case NorthWest:
-		calculateNewPoint(North, point)
-		calculateNewPoint(West, point)
-	case NorthEast:
-		calculateNewPoint(North, point)
-		calculateNewPoint(East, point)
-	case SouthWest:
-		calculateNewPoint(South, point)
-		calculateNewPoint(West, point)
-	case SouthEast:
-		calculateNewPoint(South, point)
-		calculateNewPoint(East, point)
-	}
+func getNewPoint(direction string, point *Point) {
+	directions[direction](point)
 }

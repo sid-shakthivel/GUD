@@ -27,7 +27,6 @@ $$    $$/ $$    $$/ $$    $$/
 $$$$$$/   $$$$$$/  $$$$$$$/
 `
 
-
 /*
 Singleton restricts instaniation of struct to a single instance
 Singletons also provide a global access to an instance and protects it from being overwritten
@@ -110,10 +109,10 @@ func initaliseGame() {
 		direction := pickRandomDirection()
 
 		// Walk that direction for a random amount
-		cyclesToWalk := rand.Intn(20)
+		cyclesToWalk := rand.Intn(15)
 
 		for j := 0; j < cyclesToWalk; j++ {
-			calculateNewPoint(direction, &point)
+			getNewPoint(direction, &point)
 
 			// Tiles become 0 on default and 1 when walked on to generate dungeon rooms
 			getWorldInstance().worldMap[point.x][point.y] = 1
@@ -141,13 +140,13 @@ func initaliseGame() {
 		}
 
 		// Push new item to global items array
-		getWorldInstance().items = append(getWorldInstance().items, Item{itemName, randomPoint, true, itemType })
+		getWorldInstance().items = append(getWorldInstance().items, Item{itemName, *randomPoint, true, itemType })
 	}
 
 	// Generate a number of event objects located around the map
 	for i := 0; i < rand.Intn(10); i++ {
 		randomPoint := findFreeLocationInDungeon()
-		getWorldInstance().items = append(getWorldInstance().items, Item{"hotspot", randomPoint, true, HotSpot})
+		getWorldInstance().items = append(getWorldInstance().items, Item{"hotspot", *randomPoint, true, HotSpot})
 	}
 
 	// Generate a number of NPC's which are able to sell items
@@ -158,10 +157,8 @@ func initaliseGame() {
 	}
 
 	for _, name := range strings.Split(string(npcNames), " ") {
-		getWorldInstance().items = append(getWorldInstance().items, Item{name, findFreeLocationInDungeon(), true, NPC})
+		getWorldInstance().items = append(getWorldInstance().items, Item{name, *findFreeLocationInDungeon(), true, NPC})
 	}
-
-	printMap()
 }
 
 func handleConnection(conn net.Conn) {
@@ -170,13 +167,15 @@ func handleConnection(conn net.Conn) {
 	writeToPlayer(conn, LOGO)
 
 	// Create new player and retrieve name
-	writeToPlayer(conn, "Good day fellow union member!")
-	writeToPlayer(conn, "By what do you wish to be addressed by?")
+//	writeToPlayer(conn, "Good day fellow union member!")
+//	writeToPlayer(conn, "By what do you wish to be addressed by?")
+//
+//	nameBytes := make([]byte, 256)
+//	_, _ = conn.Read(nameBytes)
 
-	nameBytes := make([]byte, 256)
-	_, _ = conn.Read(nameBytes)
+//	nameStr := nonAlphanumericRegex.ReplaceAllString(string(nameBytes), "")
 
-	nameStr := nonAlphanumericRegex.ReplaceAllString(string(nameBytes), "")
+	nameStr := "sid"
 
 	inventory := make([]Item, 1)
 	inventory[0] = Item{ "blonde", Point {15, 20, 0, 0, nil}, true, Random}
@@ -192,6 +191,7 @@ func handleConnection(conn net.Conn) {
 		"pickup": player.pickup,
 		"drop": player.drop,
 		"combine": player.combine,
+		"stats": player.viewStats,
 		"quit": player.quit,
 		"help": player.help,
 	}
