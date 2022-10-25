@@ -3,6 +3,7 @@ package main
 import (
 	"net"
 	"unicode"
+	"math"
 )
 
 func min(x, y int) int {
@@ -90,4 +91,20 @@ func GetValues[T comparable, U any] (m map[T]U) [] U {
 
 func writeToPlayer(conn net.Conn, text string) {
 	conn.Write([]byte(text + "\n\n"))
+}
+
+func calculateHeuristicCost(nodeA Point, nodeB Point) int {
+	/*
+	Uses Manhattan distance in which we check nodes horizontally and vertically (not diagonally) - named because it's similar to calculating number of city blocks
+	Delta X + Delta Y
+	*/
+
+	deltaX := int(math.Abs(float64(nodeA.x - nodeB.x)))
+	deltaY := int(math.Abs(float64(nodeA.y - nodeB.y)))
+
+	if deltaX > deltaY {
+		return 14 * deltaY + 10 * (deltaX - deltaY)
+	} else {
+		return 14 * deltaX + 10 * (deltaY - deltaX)
+	}
 }

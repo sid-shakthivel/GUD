@@ -1,8 +1,8 @@
 package main
 
 import (
-	"math"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"net"
@@ -14,7 +14,24 @@ type Player struct {
 	inventory   []Item
 	conn net.Conn
 	name string
+	armour *Item
+	weapon *Item
+	health int
 	actions map[string]func(modifiers []string)
+}
+
+func NewPlayer(coordinates *Point, conn net.Conn, name string) *Player {
+	inventory := make([]Item, 1)
+	inventory[0] = Item{ "blonde", Point {15, 20, 0, 0, nil}, true, Random}
+
+	p := new(Player)
+	p.coordinates = coordinates
+	p.inventory = inventory
+	p.conn = conn
+	p.name = name
+	p.health = 100
+
+	return p
 }
 
 /*
@@ -25,7 +42,7 @@ func (player Player) move(modifiers []string) {
 	// Parse input correctly
 
 	if len(modifiers) < 2 || !isInt(modifiers[1]) || !Contains(GetKeys(directions), modifiers[0]) {
-		player.displayError()
+		player.displayError("")
 		return
 	}
 
@@ -44,7 +61,7 @@ func (player Player) move(modifiers []string) {
 		}
 	}
 
-	writeToPlayer(player.conn, "- Your position is [" + strconv.Itoa(player.coordinates.x) + "," + strconv.Itoa(player.coordinates.y) + "]")
+	writeToPlayer(player.conn, "- Your position is " + player.coordinates.format())
 	writeToPlayer(player.conn, "The map is below")
 	player.printMap()
 }
@@ -58,21 +75,29 @@ func (player Player) isWithinPlayableRegion() bool {
 
 /*
 Signature `scan {distance}`
-Allows player to scan nearby to idenify items and teleportation in all directions for a unit
+Allows player to scan nearby to identify items and eventObjects in all directions
 */
 func (player Player) scan(modifiers []string) {
 	// Check for parameters
-	if len(modifiers) < 1 { player.displayError() }
+	if len(modifiers) < 1 {
+		player.displayError("")
+		return
+	}
+
 	// Looks for unit block in all directions to check for item and reports back to user
 
-	distance, err := strconv.Atoi(modifiers[1])
+	distance, err := strconv.Atoi(modifiers[0])
 	if err != nil {
 		panic(err)
 	}
 
-	for i := 0; i < distance; i++ {
-		// Check for each direction
+	// Check coordiantes of all items if they are within distance
+	for _, item := range getWorldInstance().items {
+		if int(math.Abs(float64(item.coordinates.x - player.coordinates.x))) <= distance && int(math.Abs(float64(item.coordinates.y - player.coordinates.y))) <= distance {
+			writeToPlayer(player.conn, "Found: " + item.description + " at " + item.coordinates.format())
+		}
 	}
+	writeToPlayer(player.conn, "Scan finished")
 }
 
 /*
@@ -81,13 +106,13 @@ Allows player to investigate items they encounter including hotspots
 */
 func (player Player) investigate(modifiers []string) {
 	// Check for parameters
-	if len(modifiers) < 1 { player.displayError() }
+	if len(modifiers) < 1 { player.displayError("") }
 
 	// Check if item is within the eventObject dictionary and run functions
 	eventObject[modifiers[0]](player, modifiers[1:len(modifiers)])
 }
 
-// Check if a point array contains a point with the same coordiantes
+// Check if a point slice contains a point with the same coordiantes
 func (point Point) ContainsPoint(points []Point) bool {
 	for i := range points {
 		if points[i].x == point.x && points[i].y == point.y {
@@ -99,12 +124,12 @@ func (point Point) ContainsPoint(points []Point) bool {
 
 /*
 Signature 'locate {item name}`
-Uses Dijkstra's path finding algorithm to work out the shortest path between the user and an item
+Uses A* path finding algorithm to work out the shortest path between the user and an item
 Dispays the path to the user
 */
 func (player Player) locate(modifiers []string) {
 	// Check for parameters
-	if len(modifiers) < 1 { player.displayError() }
+	if len(modifiers) < 1 { player.displayError("") }
 
 	// Find item position in world
 	itemIndex := Find(player.inventory, func (item Item) bool {
@@ -186,24 +211,32 @@ func (player Player) locate(modifiers []string) {
 /*
 Signature `pickup {item name}`
 Add item to inventory
-TODO: Possible to make some sort of method to combine these two
 */
 func (player Player) pickup(modifiers []string) {
 	// Check for parameters
-	if len(modifiers) < 1 { player.displayError() }
+	if len(modifiers) < 1 { player.displayError("") }
 
 	// Search items array for item requested to get item of description at coordinate
-
-	itemIndex := Find(player.inventory, func (item Item) bool {
+	itemIndex := Find(getWorldInstance().items, func (item Item) bool {
 		return item.description == modifiers[0]
 	})
 
 	if itemIndex < 0 {
-		fmt.Println("Item not found")
-	} else {
-		player.inventory = append(player.inventory, getWorldInstance().items[itemIndex])
-		getWorldInstance().items = RemoveAtIndex(getWorldInstance().items, itemIndex)
+		player.displayError("Item requested is not present within map")
+		return
 	}
+
+	item := getWorldInstance().items[itemIndex]
+
+	if item.coordinates.x != player.coordinates.x || item.coordinates.y != player.coordinates.y {
+		player.displayError("You are not at the location of the item")
+		return
+	}
+
+	player.inventory = append(player.inventory, getWorldInstance().items[itemIndex])
+	getWorldInstance().items = RemoveAtIndex(getWorldInstance().items, itemIndex)
+
+	writeToPlayer(player.conn, "Picked up " + item.description)
 }
 
 /*
@@ -212,7 +245,10 @@ Remove item from inventory and place at a coordinate
 */
 func (player Player) drop(modifiers []string) {
 	// Check for parameters
-	if len(modifiers) < 1 { player.displayError() }
+	if len(modifiers) < 1 {
+		player.displayError("")
+		return
+	}
 
 	// Search inventory for the item, remove it from inventory and append to items global
 	itemIndex := Find(player.inventory, func (item Item) bool {
@@ -220,11 +256,12 @@ func (player Player) drop(modifiers []string) {
 	})
 
 	if itemIndex < 0 {
-		fmt.Println("Item not found")
-	} else {
-		getWorldInstance().items = append(getWorldInstance().items, player.inventory[itemIndex])
-		player.inventory = RemoveAtIndex(player.inventory, itemIndex)
+		player.displayError("Item requested is not present within your inventory")
+		return
 	}
+
+	getWorldInstance().items = append(getWorldInstance().items, player.inventory[itemIndex])
+	player.inventory = RemoveAtIndex(player.inventory, itemIndex)
 }
 
 /*
@@ -233,11 +270,14 @@ Combines item to solve puzzles (when included)
 */
 func (player Player) combine(modifiers []string) {
 	// Check for parameters
-	if len(modifiers) < 2 { player.displayError() }
+	if len(modifiers) < 2 {
+		player.displayError("")
+		return
+	}
 
-	// Check user hasn't entered same item twice
 	if modifiers[0] == modifiers[1] {
-		panic("Same name chosen - use connection to write message")
+		player.displayError("You have chosen to combine the same item")
+		return
 	}
 
 	firstItemPosition := Find(player.inventory, func (item Item) bool {
@@ -248,18 +288,74 @@ func (player Player) combine(modifiers []string) {
 		return item.description == modifiers[1]
 	})
 
-	// Check user has both items within their inventory
-	if firstItemPosition > 0 && secondItemPosition > 0 {
-		// Add a new combined item to inventory
-		player.inventory = append(player.inventory, Item {player.inventory[firstItemPosition].description + player.inventory[secondItemPosition].description, player.inventory[firstItemPosition].coordinates, true, Random })
+	if firstItemPosition < 0 || secondItemPosition < 0 {
+		player.displayError("You do not possess both items")
+		return
+	}
 
-		// Remove both items from players inventory
-		RemoveAtIndex(player.inventory, firstItemPosition)
-		RemoveAtIndex(player.inventory, secondItemPosition)
+	// Add a new combined item to inventory
+	player.inventory = append(player.inventory, Item {player.inventory[firstItemPosition].description + player.inventory[secondItemPosition].description, player.inventory[firstItemPosition].coordinates, true, Random })
 
-		// Possibly should check if items can be combined - make a random method for that maybe
-	} else {
-		panic("User does not possess both items")
+	// Remove both items from players inventory
+	RemoveAtIndex(player.inventory, firstItemPosition)
+	RemoveAtIndex(player.inventory, secondItemPosition)
+}
+
+/*
+Signature `equip {item1 name}`
+Equips the weapon/armour to a player
+*/
+func (player Player) equip(modifiers[] string) {
+	// Get item information
+	itemIndex := Find(player.inventory, func (item Item) bool {
+		return item.description == modifiers[0]
+	})
+
+	if itemIndex < 0 {
+		player.displayError("Item not found within inventory")
+		return
+	}
+
+	item := getWorldInstance().items[itemIndex]
+
+	switch item.itemType {
+	case Armour:
+		player.armour = &item
+		writeToPlayer(player.conn, "Equiped " + item.description + " as armour")
+	case Weapon:
+		player.weapon = &item
+		writeToPlayer(player.conn, "Equiped " + item.description + " as weapon")
+	default:
+		player.displayError("Item cannot be equiped")
+	}
+}
+
+/*
+Signature `unequip {item1 name}`
+Equips the weapon/armour to a player
+*/
+func (player Player) unequip(modifiers[] string) {
+	// Get item information
+	itemIndex := Find(player.inventory, func (item Item) bool {
+		return item.description == modifiers[0]
+	})
+
+	if itemIndex < 0 {
+		player.displayError("Item not found within inventory")
+		return
+	}
+
+	item := getWorldInstance().items[itemIndex]
+
+	switch item.itemType {
+	case Armour:
+		player.armour = nil
+		writeToPlayer(player.conn, "Unequiped " + item.description + " as armour")
+	case Weapon:
+		player.weapon = nil
+		writeToPlayer(player.conn, "Unequiped " + item.description + " as weapon")
+	default:
+		player.displayError("Item cannot be unequiped")
 	}
 }
 
@@ -271,15 +367,23 @@ func (player Player) quit(modifiers []string) {
 
 func (player Player) help(modifiers []string) {
 	writeToPlayer(player.conn, "Here lies the possible combinations once can enter")
-	writeToPlayer(player.conn, "Move\nScan\nInvestigate\nLocate\nPickup\nDrop\nCombine\nStats\nQuit\nHelp")
+	writeToPlayer(player.conn, "Move\nScan\nInvestigate\nLocate\nPickup\nDrop\nCombine\nStats\nEquip\nUnequip\nQuit\nHelp")
 }
-func (player Player) displayError() {
-	player.conn.Write([]byte("\nUnknown or invalid command \n\n"))
-}
-
 func (player Player) viewStats(modifiers []string) {
 	player.conn.Write([]byte("\nName : " + player.name + "\n"))
-	player.conn.Write([]byte("Position: [" + strconv.Itoa(player.coordinates.x)  + "," + strconv.Itoa(player.coordinates.y) + "]" + "\n"))
+	player.conn.Write([]byte("Position: " + player.coordinates.format() + "\n"))
+	if player.armour == nil {
+		player.conn.Write([]byte("Armour: Not Equiped" + "\n"))
+	} else {
+		player.conn.Write([]byte("Armour: " + player.armour.description + "\n"))
+	}
+
+	if player.weapon == nil {
+		player.conn.Write([]byte("Weapon: Not Equiped" + "\n"))
+	} else {
+		player.conn.Write([]byte("Weapon: " + player.weapon.description + "\n"))
+	}
+
 	player.conn.Write([]byte("Inventory contents: "))
 
 	for _, item := range player.inventory {
@@ -287,6 +391,7 @@ func (player Player) viewStats(modifiers []string) {
 	}
 	player.conn.Write([]byte("\n\n"))
 }
+
 
 func (player Player) printMap() {
 	worldMap := getWorldInstance().worldMap
@@ -302,22 +407,14 @@ func (player Player) printMap() {
 		}
 		player.conn.Write([]byte("\n"))
 	}
-
+	player.conn.Write([]byte("\n"))
 }
 
-func calculateHeuristicCost(nodeA Point, nodeB Point) int {
-	/*
-	Uses Manhattan distance in which we check nodes horizontally and vertically (not diagonally) - named because it's similar to calculating number of city blocks
-	Delta X + Delta Y
-	*/
-
-	deltaX := int(math.Abs(float64(nodeA.x - nodeB.x)))
-	deltaY := int(math.Abs(float64(nodeA.y - nodeB.y)))
-
-	if deltaX > deltaY {
-		return 14 * deltaY + 10 * (deltaX - deltaY)
+func (player Player) displayError(message string) {
+	if message == "" {
+		player.conn.Write([]byte("\nUnknown or invalid command \n\n"))
 	} else {
-		return 14 * deltaX + 10 * (deltaY - deltaX)
+		player.conn.Write([]byte("\n" + message + "\n\n"))
 	}
 }
 

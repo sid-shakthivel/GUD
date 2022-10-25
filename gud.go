@@ -125,7 +125,7 @@ func initaliseGame() {
 		panic(err)
 	}
 
-	itemNames := strings.Split(string(content), " ")
+	itemNames := strings.Split(string(content), "\n")
 
 	for _, itemName := range itemNames {
 		// Find a random location within the dungeon to place the item which is free
@@ -156,7 +156,7 @@ func initaliseGame() {
 		panic(err)
 	}
 
-	for _, name := range strings.Split(string(npcNames), " ") {
+	for _, name := range strings.Split(string(npcNames), "\n") {
 		getWorldInstance().items = append(getWorldInstance().items, Item{name, *findFreeLocationInDungeon(), true, NPC})
 	}
 }
@@ -180,7 +180,7 @@ func handleConnection(conn net.Conn) {
 	inventory := make([]Item, 1)
 	inventory[0] = Item{ "blonde", Point {15, 20, 0, 0, nil}, true, Random}
 
-	player := Player{findFreeLocationInDungeon(), inventory, conn, nameStr, nil}
+	player := NewPlayer(findFreeLocationInDungeon(), conn, nameStr)
 
 	// Dictionary of actions which players can undertake
 	var actions = map[string]func(modifiers []string){
@@ -192,6 +192,8 @@ func handleConnection(conn net.Conn) {
 		"drop": player.drop,
 		"combine": player.combine,
 		"stats": player.viewStats,
+		"equip": player.equip,
+		"unequip": player.unequip,
 		"quit": player.quit,
 		"help": player.help,
 	}

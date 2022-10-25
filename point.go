@@ -2,6 +2,7 @@ package main
 
 import (
 	"math/rand"
+	"strconv"
 )
 
 type Point struct {
@@ -10,6 +11,10 @@ type Point struct {
 	gcost int // Cost of start point to end goal
 	hcost int // Heuristic cost estimated cost from node to goal
 	parent *Point
+}
+
+func (point Point) format() string {
+	return "[" + strconv.Itoa(point.x) + "," + strconv.Itoa(point.y) + "]"
 }
 
 func NewPoint(x int, y int) *Point {
