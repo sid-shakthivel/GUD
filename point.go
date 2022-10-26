@@ -37,19 +37,19 @@ var directions = map[string]func(point *Point) {
 	"west": func(point *Point) {
 		point.x = max((*point).x-1, 0)
 	},
-	"north-east": func(point *Point) {
+	"northeast": func(point *Point) {
 		point.y = min((*point).y+1, HEIGHT)
 		point.x = min((*point).x+1, WIDTH)
 	},
-	"north-west": func(point *Point) {
+	"northwest": func(point *Point) {
 		point.y = min((*point).y+1, HEIGHT)
 		point.x = max((*point).x-1, 0)
 	},
-	"south-east": func(point *Point) {
+	"southeast": func(point *Point) {
 		point.y = max((*point).y-1, 0)
 		point.x = min((*point).x+1, WIDTH)
 	},
-	"south-west": func(point *Point) {
+	"southwest": func(point *Point) {
 		point.y = max((*point).y-1, 0)
 		point.x = max((*point).x-1, 0)
 	},

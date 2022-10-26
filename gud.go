@@ -12,8 +12,8 @@ import (
 )
 
 // Map dimensions
-const WIDTH = 15
-const HEIGHT = 30
+const WIDTH = 30
+const HEIGHT = 15
 
 const LOGO = `
 ______   __    __  _______
@@ -149,16 +149,16 @@ func initaliseGame() {
 		getWorldInstance().items = append(getWorldInstance().items, Item{"hotspot", *randomPoint, true, HotSpot})
 	}
 
-	// Generate a number of NPC's which are able to sell items
+//	Generate a number of NPC's which are able to sell items
 
-	npcNames, err := os.ReadFile("data/npcNames.txt")
-	if err != nil {
-		panic(err)
-	}
-
-	for _, name := range strings.Split(string(npcNames), "\n") {
-		getWorldInstance().items = append(getWorldInstance().items, Item{name, *findFreeLocationInDungeon(), true, NPC})
-	}
+//	npcNames, err := os.ReadFile("data/npcNames.txt")
+//	if err != nil {
+//		panic(err)
+//	}
+//
+//	for _, name := range strings.Split(string(npcNames), "\n") {
+//		getWorldInstance().items = append(getWorldInstance().items, Item{name, *findFreeLocationInDungeon(), true, NPC})
+//	}
 }
 
 func handleConnection(conn net.Conn) {
@@ -195,6 +195,7 @@ func handleConnection(conn net.Conn) {
 		"equip": player.equip,
 		"unequip": player.unequip,
 		"quit": player.quit,
+		"map": player.printMap,
 		"help": player.help,
 	}
 
@@ -213,10 +214,12 @@ func handleConnection(conn net.Conn) {
 		if ContainsKey(actions, parsedInput[0]) {
 			actions[parsedInput[0]](parsedInput[1:len(parsedInput)])
 		} else {
-			writeToPlayer(player.conn, "Unknown command - please refer to the help command")
+			writeToPlayer(player.conn, "Unknown command")
 		}
 	}
 }
+
+// Channels are pipes which connect concurrent goroutines in which values can be send between
 
 func startServer() {
 	port := "localhost:5000"
