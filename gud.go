@@ -13,7 +13,7 @@ import (
 const WIDTH = 30 // Width of map
 const HEIGHT = 15 // Height of map
 const MAX_TUNNELS = 100 // Greatest number of turns algorithm can make
-const MAX_TUNNEL_LENGTH = 30 // Greatest length of each tunnel the algorithm will choose before making a turn
+const MAX_TUNNEL_LENGTH = 40 // Greatest length of each tunnel the algorithm will choose before making a turn
 
 const LOGO = `
 ______   __    __  _______
@@ -64,8 +64,7 @@ const (
 	Armour ItemType = iota
 	Weapon
 	Random
-	HotSpot
-	NPC
+	EventObject
 )
 
 // Dictionary called eventObject of strings to functions which transmute the player eventObjects
@@ -80,22 +79,27 @@ var eventObject = map[string]func(player Player, modifers []string) {
 	},
 	"npc": func(player Player, modifers []string) {
 		// NPC's sell random items to user on their request
-		writeToPlayer(player.conn, "Hi I am " + modifers[0] + "! What would you like to buy?")
+		writeToPlayer(player.conn, "Goodday fellow union member I am " + modifers[0] + "! What would you like to buy?")
 		writeToPlayer(player.conn, "I sell the following items: ")
 
-//		sellableItems := make([]Item, 0)
+		allItemsPresent := getWorldInstance().items
+		sellableItems := make([]Item, 0)
 
-//		n := 0
-//		for n < rand.Intn(len(items)) {
-//			sellableItems = append(sellableItems, getWorldInstance().items[rand.Intn(len(items))])
-//			n += 1
+		for n := 0; n < rand.Intn(len(allItemsPresent)); n++ {
+			sellableItems = append(sellableItems, getWorldInstance().items[rand.Intn(len(allItemsPresent))])
+		}
+
+		writeToPlayer(player.conn, Reduce(sellableItems, func (item Item, acc string) string {
+			return acc + item.description
+		}, ""))
+
+//		var options = map[string]func(modifiers []string){
+//
 //		}
 //
-//		writeToPlayer(player.conn, Reduce(sellableItems, func (item Item, acc string) string {
-//			return acc + item.description
-//		}, ""))
-
-		// TODO: Provide options to buy stuff
+//		for {
+//
+//		}
 	},
 }
 
@@ -152,21 +156,20 @@ func initaliseGame() {
 	}
 
 	// Generate a number of event objects located around the map
-	for i := 0; i < rand.Intn(10); i++ {
+	for i := 0; i < rand.Intn(5); i++ {
 		randomPoint := findFreeLocationInDungeon()
-		getWorldInstance().items = append(getWorldInstance().items, Item{"hotspot", *randomPoint, true, HotSpot})
+		getWorldInstance().items = append(getWorldInstance().items, Item{"hotspot", *randomPoint, true, EventObject})
 	}
 
-//	Generate a number of NPC's which are able to sell items
+	// Generate a number of NPC's which are able to sell items
+	npcNames, err := os.ReadFile("data/npcNames.txt")
+	if err != nil {
+		panic(err)
+	}
 
-//	npcNames, err := os.ReadFile("data/npcNames.txt")
-//	if err != nil {
-//		panic(err)
-//	}
-//
-//	for _, name := range strings.Split(string(npcNames), "\n") {
-//		getWorldInstance().items = append(getWorldInstance().items, Item{name, *findFreeLocationInDungeon(), true, NPC})
-//	}
+	for _, name := range strings.Split(string(npcNames), "\n") {
+		getWorldInstance().items = append(getWorldInstance().items, Item{name, *findFreeLocationInDungeon(), true, EventObject})
+	}
 }
 
 func handleConnection(conn net.Conn) {

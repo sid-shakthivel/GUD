@@ -166,7 +166,7 @@ func (player *Player) locate(modifiers []string) {
 			node := currentNode
 			path = append(path, node)
 
-			writeToPlayer(player.conn, "A path has been uncovered - follow it to find the item")
+			writeToPlayer(player.conn, "A path has been uncovered - follow it to find the " + getWorldInstance().items[itemIndex].description)
 
 			writeToPlayer(player.conn, node.format())
 
@@ -180,14 +180,14 @@ func (player *Player) locate(modifiers []string) {
 		} else {
 			// Create a list of adjacent nodes which are walkable from the current node and not closed
 
-			neighbour1 := Point{min(currentNode.x + 1, WIDTH - 1), currentNode.y, 0, 0, nil }
-			neighbour2 := Point{max(currentNode.x - 1, 0), currentNode.y, 0, 0, nil}
-			neighbour3 := Point{currentNode.x, min(currentNode.y + 1, HEIGHT - 1), 0, 0, nil}
-			neighbour4 := Point{currentNode.x, max(currentNode.y - 1, 0), 0, 0, nil}
-			neighbour5 := Point{min(currentNode.x + 1, WIDTH - 1), min(currentNode.y + 1, HEIGHT - 1), 0, 0, nil }
-			neighbour6 := Point{min(currentNode.x + 1, WIDTH -1), max(currentNode.y - 1, 0), 0, 0, nil}
-			neighbour7 := Point{max(currentNode.x - 1, 0), min(currentNode.y + 1, HEIGHT - 1), 0, 0, nil}
-			neighbour8 := Point{max(currentNode.x - 1, 0), max(currentNode.y - 1, 0), 0, 0, nil}
+			neighbour1 := *NewPoint(min(currentNode.x + 1, WIDTH - 1), currentNode.y)
+			neighbour2 := *NewPoint(max(currentNode.x - 1, 0), currentNode.y,)
+			neighbour3 := *NewPoint(currentNode.x, min(currentNode.y + 1, HEIGHT - 1))
+			neighbour4 := *NewPoint(currentNode.x, max(currentNode.y - 1, 0))
+			neighbour5 := *NewPoint(min(currentNode.x + 1, WIDTH - 1), min(currentNode.y + 1, HEIGHT - 1))
+			neighbour6 := *NewPoint(min(currentNode.x + 1, WIDTH -1), max(currentNode.y - 1, 0))
+			neighbour7 := *NewPoint(max(currentNode.x - 1, 0), min(currentNode.y + 1, HEIGHT - 1))
+			neighbour8 := *NewPoint(max(currentNode.x - 1, 0), max(currentNode.y - 1, 0))
 
 			neighbours := [8]Point { neighbour1, neighbour2, neighbour3, neighbour4, neighbour5, neighbour6, neighbour7, neighbour8 }
 
@@ -221,7 +221,7 @@ func (player *Player) pickup(modifiers []string) {
 	// Check for parameters
 	if len(modifiers) < 1 { player.displayError("") }
 
-	// Search items array for item requested to get item of description at coordinate
+	// Search items array for item requested to get item
 	itemIndex := Find(getWorldInstance().items, func (item Item) bool {
 		return item.description == modifiers[0]
 	})
@@ -238,10 +238,17 @@ func (player *Player) pickup(modifiers []string) {
 		return
 	}
 
-	player.inventory = append(player.inventory, item)
-	getWorldInstance().items = RemoveAtIndex(getWorldInstance().items, itemIndex)
+	// Check the type of the item to determine what to do
 
-	writeToPlayer(player.conn, "Picked up " + item.description)
+	switch item.itemType {
+	case Random, Weapon, Armour:
+		player.inventory = append(player.inventory, item)
+		writeToPlayer(player.conn, "Picked up " + item.description)
+		getWorldInstance().items = RemoveAtIndex(getWorldInstance().items, itemIndex)
+	default:
+		player.displayError("Cannot pickup an event object - investigate it pronto")
+		return
+	}
 }
 
 /*
@@ -379,7 +386,11 @@ func (player *Player) quit(modifiers []string) {
 
 func (player *Player) help(modifiers []string) {
 	writeToPlayer(player.conn, "Here lies the possible combinations once can enter")
-	writeToPlayer(player.conn, "Move\nScan\nInvestigate\nLocate\nPickup\nDrop\nCombine\nStats\nEquip\nUnequip\nQuit\nHelp")
+
+	for _, action := range GetKeys(player.actions) {
+		writeToPlayerCompact(player.conn, action)
+	}
+	writeToPlayerCompact(player.conn, "")
 }
 func (player *Player) viewStats(modifiers []string) {
 	player.conn.Write([]byte("\nName : " + player.name + "\n"))
@@ -420,6 +431,22 @@ func (player *Player) printMap(modifiers []string) {
 		player.conn.Write([]byte("\n"))
 	}
 	player.conn.Write([]byte("\n"))
+}
+
+/*
+Signature: `buy{itemName}`
+Allows player to buy an item from a seler in exchange for gold
+*/
+func (player *Player) buyItem(modifiers []string, items *[]Item) {
+
+}
+
+/*
+Signature: `sell {itemName}`
+Allows player to sel an item they possess in exchange for gold
+*/
+func (player *Player) sell(modifiers []string, items *[]Item) {
+
 }
 
 func (player *Player) displayError(message string) {

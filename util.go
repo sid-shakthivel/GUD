@@ -93,6 +93,10 @@ func writeToPlayer(conn net.Conn, text string) {
 	conn.Write([]byte(text + "\n\n"))
 }
 
+func writeToPlayerCompact(conn net.Conn, text string) {
+	conn.Write([]byte(text + "\n"))
+}
+
 func calculateHeuristicCost(nodeA Point, nodeB Point) int {
 	/*
 	Uses Manhattan distance in which we check nodes horizontally and vertically (not diagonally) - named because it's similar to calculating number of city blocks
