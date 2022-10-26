@@ -24,6 +24,21 @@ func NewPoint(x int, y int) *Point {
 	return p
 }
 
+var manhattanDirections = map[string]func(point *Point) {
+	"north": func(point *Point) {
+		point.y = min((*point).y+1, HEIGHT)
+	},
+	"south": func(point *Point) {
+		point.y = max((*point).y-1, 0)
+	},
+	"east": func(point *Point) {
+		point.x = min((*point).x+1, WIDTH)
+	},
+	"west": func(point *Point) {
+		point.x = max((*point).x-1, 0)
+	},
+}
+
 var directions = map[string]func(point *Point) {
 	"north": func(point *Point) {
 		point.y = min((*point).y+1, HEIGHT)
@@ -55,10 +70,29 @@ var directions = map[string]func(point *Point) {
 	},
 }
 
-func pickRandomDirection() string {
-	directionsList := GetKeys(directions)
-	return directionsList[len(directionsList) - 1]
+func pickPerpendicularRandomDirection(lastDirection string) string {
+	directionsList := GetKeys(manhattanDirections)
+	newDirection := directionsList[len(directionsList) - 1]
+
+	if lastDirection == "north" && newDirection == "south" || lastDirection == "north" && newDirection == "north" {
+		return pickPerpendicularRandomDirection(lastDirection)
+	}
+
+	if lastDirection == "south" && newDirection == "north" || lastDirection == "south" && newDirection == "south" {
+		return pickPerpendicularRandomDirection(lastDirection)
+	}
+
+	if lastDirection == "east" && newDirection == "east" || lastDirection == "east" && newDirection == "west" {
+		return pickPerpendicularRandomDirection(lastDirection)
+	}
+
+	if lastDirection == "west" && newDirection == "east" || lastDirection == "west" && newDirection == "west" {
+		return pickPerpendicularRandomDirection(lastDirection)
+	}
+
+	return newDirection
 }
+
 func findFreeLocationInDungeon() *Point {
 	// Get random coordinate and ensure dungeon space exists there
 	randX := rand.Intn(WIDTH)

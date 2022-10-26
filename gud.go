@@ -10,10 +10,10 @@ import (
 	"regexp"
 	"sync"
 )
-
-// Map dimensions
-const WIDTH = 30
-const HEIGHT = 15
+const WIDTH = 30 // Width of map
+const HEIGHT = 15 // Height of map
+const MAX_TUNNELS = 100 // Greatest number of turns algorithm can make
+const MAX_TUNNEL_LENGTH = 30 // Greatest length of each tunnel the algorithm will choose before making a turn
 
 const LOGO = `
 ______   __    __  _______
@@ -103,20 +103,28 @@ func initaliseGame() {
 	// Pick random start point within the array
 	var point = Point{WIDTH / 2, HEIGHT / 2, 0, 0, nil}
 
+	lastDirection := pickPerpendicularRandomDirection("north")
+
 	// Generate a number of walks to make an actual dungeon
-	for i := 0; i < 50; i++ {
-		// Pick random direction to walk
-		direction := pickRandomDirection()
+	for i := 0; i < MAX_TUNNELS; i++ {
+		/*
+			Pick random direction to walk which is perpendicular to the last direction
+			If last was right/left, new one must be up/down
+		*/
+		randomDirection := pickPerpendicularRandomDirection(lastDirection)
 
-		// Walk that direction for a random amount
-		cyclesToWalk := rand.Intn(15)
+		// Calculate how long a tunnel will be
+		tunnelLength := rand.Intn(MAX_TUNNEL_LENGTH)
 
-		for j := 0; j < cyclesToWalk; j++ {
-			getNewPoint(direction, &point)
+		for j := 0; j < tunnelLength; j++ {
+			getNewPoint(randomDirection, &point)
 
 			// Tiles become 0 on default and 1 when walked on to generate dungeon rooms
 			getWorldInstance().worldMap[point.x][point.y] = 1
 		}
+
+		// Set last direction
+		lastDirection = randomDirection
 	}
 
 	// Retrieve items which are predefined in a text file
