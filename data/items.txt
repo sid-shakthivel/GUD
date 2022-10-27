@@ -11,4 +11,3 @@ sarmour
 barmour
 isword
 gsword
-test

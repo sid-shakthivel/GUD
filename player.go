@@ -67,6 +67,14 @@ func (player *Player) move(modifiers []string) {
 	}
 
 	writeToPlayer(player.conn, "- Your position is " + player.coordinates.format())
+
+	// Check if player has encountered an event and trigger one
+	for _, event := range getWorldInstance().events {
+		if event.coordinates.x == player.coordinates.x && event.coordinates.y == player.coordinates.y {
+			writeToPlayer(player.conn, "You have found a " + event.eventType.String())
+			events[event.eventType](player, event)
+		}
+	}
 }
 
 func (player *Player) isWithinPlayableRegion() bool {
@@ -101,18 +109,6 @@ func (player *Player) scan(modifiers []string) {
 		}
 	}
 	writeToPlayer(player.conn, "Scan finished")
-}
-
-/*
-Signature `investigate {item}`
-Allows player to investigate items they encounter including hotspots
-*/
-func (player *Player) investigate(modifiers []string) {
-	// Check for parameters
-	if len(modifiers) < 1 { player.displayError("") }
-
-	// Check if item is within the eventObject dictionary and run functions
-//	eventObject[modifiers[0]](player, modifiers[1:len(modifiers)])
 }
 
 // Check if a point slice contains a point with the same coordiantes
@@ -249,7 +245,7 @@ func (player *Player) pickup(modifiers []string) {
 		writeToPlayer(player.conn, "Picked up " + item.description)
 		getWorldInstance().items = RemoveAtIndex(getWorldInstance().items, itemIndex)
 	default:
-		player.displayError("Cannot pickup an event object - investigate it pronto")
+		player.displayError("Cannot pickup an events object - investigate it pronto")
 		return
 	}
 }

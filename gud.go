@@ -46,11 +46,15 @@ func getWorldInstance() *worldSingle {
 }
 
 type worldSingle struct {
-	worldMap [WIDTH][HEIGHT]int // Pixel array which stores the map to create a perfect square
-	items []Item
+	worldMap [WIDTH][HEIGHT]int // Pixel array of map
+	items []Item // Slice of items
+	events []Event // Slice of events
 }
 
-// Items are located around the map (need to be generated on startup from data file)
+/*
+	Items are objects which are located around the map
+	They can be obtained/dropped by a player
+*/
 type Item struct {
 	description string
 	coordinates Point
@@ -58,8 +62,9 @@ type Item struct {
 	itemType ItemType
 }
 
-// Type of an item is used to define the actions that can be taken with an item
 type ItemType int
+
+// Type of item is used to define the actions that can be taken with an item
 const (
 	Armour ItemType = iota
 	Weapon
@@ -69,9 +74,39 @@ const (
 
 var nonAlphanumericRegex = regexp.MustCompile(`[^a-zA-Z0-9 ]+`)
 
-// Dictionary called eventObject of strings to functions which transmute the player eventObjects
-var eventObject = map[string]func(player Player, modifers []string) {
-	"hotspot": func(player Player, modifers []string) {
+type EventType int
+const (
+	Hotspot EventType = iota
+	NPC
+	Enemy
+)
+
+func (eventType EventType) String() string {
+	switch eventType {
+	case Hotspot:
+		return "hotspot"
+	case NPC:
+		return "humanoid"
+	case Enemy:
+		return "a dreaded foe"
+	default:
+		return "idk"
+	}
+}
+
+/*
+	Events are similar to items however cannot be obtained
+	Events interact with player and transform the world
+*/
+type Event struct {
+	coordinates Point
+	eventType EventType
+	name string ""
+}
+
+// Dictionary called events of strings to functions which transmute the player eventObjects
+var events = map[EventType]func(player *Player, event Event) {
+	Hotspot: func(player *Player, event Event) {
 		// Finding a hotspot moves the player to a random location within the dungeon
 		fmt.Println("You have found a hotspot - prepare to be deported")
 
@@ -79,9 +114,9 @@ var eventObject = map[string]func(player Player, modifers []string) {
 		newPos := findFreeLocationInDungeon()
 		player.coordinates = newPos
 	},
-	"npc": func(player Player, modifers []string) {
+	NPC: func(player *Player, event Event) {
 		// NPC's sell random items to user on their request
-		writeToPlayer(player.conn, "Goodday fellow union member I am " + modifers[0] + "! What would you like to buy?")
+		writeToPlayer(player.conn, "Goodday fellow union member I am " + event.name + "! What would you like to buy?")
 		writeToPlayer(player.conn, "I sell the following items: ")
 
 		allItemsPresent := getWorldInstance().items
@@ -104,7 +139,7 @@ var eventObject = map[string]func(player Player, modifers []string) {
 			tmp := make([]byte, 256)
 			player.conn.Read(tmp)
 
-			// Parse input by changing all special
+			// Parse input by changing all special characters
 			parsedInput := strings.Split(nonAlphanumericRegex.ReplaceAllString(string(bytes.Trim(tmp, "\x00")), ""), " ")
 
 			if ContainsKey(options, parsedInput[0]) {
@@ -122,6 +157,15 @@ var eventObject = map[string]func(player Player, modifers []string) {
 				}
 			}
 		}
+	},
+	Enemy: func(player *Player, event Event) {
+		// Begin battle
+
+		// Pick a random number of attacks/defenses
+
+		// Cycle through random minmial/moderate/major attacks and minimal/moderate damages
+
+		// Pick winner (between enemy and player) to deliver final major attack and major damage
 	},
 }
 
@@ -153,7 +197,7 @@ func initaliseGame() {
 		lastDirection = randomDirection
 	}
 
-	// Retrieve items which are predefined in a text file
+	// Retrieve items which are predefined in a text file and add them into world
 	content, err := os.ReadFile("data/items.txt")
 	if err != nil {
 		panic(err)
@@ -177,20 +221,29 @@ func initaliseGame() {
 		getWorldInstance().items = append(getWorldInstance().items, Item{itemName, *randomPoint, true, itemType })
 	}
 
-	// Generate a number of event objects located around the map
+	// Generate a random number of hotspots to be placed inside the world
 	for i := 0; i < rand.Intn(5); i++ {
-		randomPoint := findFreeLocationInDungeon()
-		getWorldInstance().items = append(getWorldInstance().items, Item{"hotspot", *randomPoint, true, EventObject})
+		getWorldInstance().events = append(getWorldInstance().events, Event{*findFreeLocationInDungeon(), Hotspot, ""})
 	}
 
-	// Generate a number of NPC's which are able to sell items
+	// Generate NPC's from data files
 	npcNames, err := os.ReadFile("data/npcNames.txt")
 	if err != nil {
 		panic(err)
 	}
 
 	for _, name := range strings.Split(string(npcNames), "\n") {
-		getWorldInstance().items = append(getWorldInstance().items, Item{name, *findFreeLocationInDungeon(), true, EventObject})
+		getWorldInstance().events = append(getWorldInstance().events, Event{*findFreeLocationInDungeon(), NPC, name})
+	}
+
+	// Generate enemies from data files
+	enemyNames, err := os.ReadFile("data/enemies.txt")
+	if err != nil {
+		panic(err)
+	}
+
+	for _, name := range strings.Split(string(enemyNames), "\n") {
+		getWorldInstance().events = append(getWorldInstance().events, Event{*findFreeLocationInDungeon(), Enemy, name})
 	}
 }
 
@@ -217,7 +270,6 @@ func handleConnection(conn net.Conn) {
 	var actions = map[string]func(modifiers []string){
 		"move": player.move,
 		"scan": player.scan,
-		"investigate": player.investigate,
 		"locate": player.locate,
 		"pickup": player.pickup,
 		"drop": player.drop,
@@ -249,9 +301,6 @@ func handleConnection(conn net.Conn) {
 		}
 	}
 }
-
-// Channels are pipes which connect concurrent goroutines in which values can be send between
-
 func startServer() {
 	port := "localhost:5000"
 	ln, err := net.Listen("tcp", port) // Create a new server
