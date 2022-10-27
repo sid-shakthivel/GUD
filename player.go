@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strconv"
 	"net"
+	"math/rand"
 )
 
 // Players serve as clients to the server which navigate around the world
@@ -16,6 +17,7 @@ type Player struct {
 	armour *Item
 	weapon *Item
 	health int
+	gold int
 	actions map[string]func(modifiers []string)
 }
 
@@ -29,6 +31,7 @@ func NewPlayer(coordinates *Point, conn net.Conn, name string) *Player {
 	p.conn = conn
 	p.name = name
 	p.health = 100
+	p.gold = 100
 
 	return p
 }
@@ -395,6 +398,9 @@ func (player *Player) help(modifiers []string) {
 func (player *Player) viewStats(modifiers []string) {
 	player.conn.Write([]byte("\nName : " + player.name + "\n"))
 	player.conn.Write([]byte("Position: " + player.coordinates.format() + "\n"))
+	player.conn.Write([]byte("Health: " + strconv.Itoa(player.health) + "\n"))
+	player.conn.Write([]byte("Gold coins: " + strconv.Itoa(player.gold) + "\n"))
+
 	if player.armour == nil {
 		player.conn.Write([]byte("Armour: Not Equiped" + "\n"))
 	} else {
@@ -434,19 +440,55 @@ func (player *Player) printMap(modifiers []string) {
 }
 
 /*
-Signature: `buy{itemName}`
+Signature: `buy {itemName}`
 Allows player to buy an item from a seler in exchange for gold
 */
 func (player *Player) buyItem(modifiers []string, items *[]Item) {
+	itemIndex := Find(*items, func (item Item) bool {
+		return item.description == modifiers[0]
+	})
 
+	if itemIndex < 0 {
+		player.displayError("Sorry I do not sell that item")
+		return
+	}
+
+	item := (*items)[itemIndex]
+
+	price := rand.Intn(10) // Generate random price
+
+	if player.gold - price < 0 {
+		player.displayError("You possess insufficient funds to purchase from the vendor")
+		return
+	}
+
+	player.inventory = append(player.inventory, item)
+	writeToPlayer(player.conn, "Purchased " + item.description + " for " + strconv.Itoa(price))
+	player.gold -= price
+	*items = RemoveAtIndex(*items, itemIndex)
 }
 
 /*
 Signature: `sell {itemName}`
 Allows player to sel an item they possess in exchange for gold
 */
-func (player *Player) sell(modifiers []string, items *[]Item) {
+func (player *Player) sellItem(modifiers []string, items *[]Item) {
+	itemIndex := Find(player.inventory, func (item Item) bool {
+		return item.description == modifiers[0]
+	})
 
+	if itemIndex < 0 {
+		player.displayError("You do not possess such an item")
+		return
+	}
+
+	item := player.inventory[itemIndex]
+	price := rand.Intn(10) // Generate random price
+
+	*items = append(*items, item)
+	writeToPlayer(player.conn, "Sold " + item.description + " for " + strconv.Itoa(price))
+	player.gold += price
+	player.inventory = RemoveAtIndex(player.inventory, itemIndex)
 }
 
 func (player *Player) displayError(message string) {

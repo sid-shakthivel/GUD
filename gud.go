@@ -12,8 +12,8 @@ import (
 )
 const WIDTH = 30 // Width of map
 const HEIGHT = 15 // Height of map
-const MAX_TUNNELS = 100 // Greatest number of turns algorithm can make
-const MAX_TUNNEL_LENGTH = 40 // Greatest length of each tunnel the algorithm will choose before making a turn
+const MAX_TUNNELS = 50 // Greatest number of turns algorithm can make
+const MAX_TUNNEL_LENGTH = 30 // Greatest length of each tunnel the algorithm will choose before making a turn
 
 const LOGO = `
 ______   __    __  _______
@@ -67,6 +67,8 @@ const (
 	EventObject
 )
 
+var nonAlphanumericRegex = regexp.MustCompile(`[^a-zA-Z0-9 ]+`)
+
 // Dictionary called eventObject of strings to functions which transmute the player eventObjects
 var eventObject = map[string]func(player Player, modifers []string) {
 	"hotspot": func(player Player, modifers []string) {
@@ -93,13 +95,33 @@ var eventObject = map[string]func(player Player, modifers []string) {
 			return acc + item.description
 		}, ""))
 
-//		var options = map[string]func(modifiers []string){
-//
-//		}
-//
-//		for {
-//
-//		}
+		var options = map[string]func(modifiers []string, items *[]Item){
+			"buy": player.buyItem,
+			"sell": player.sellItem,
+		}
+
+		for true {
+			tmp := make([]byte, 256)
+			player.conn.Read(tmp)
+
+			// Parse input by changing all special
+			parsedInput := strings.Split(nonAlphanumericRegex.ReplaceAllString(string(bytes.Trim(tmp, "\x00")), ""), " ")
+
+			if ContainsKey(options, parsedInput[0]) {
+				options[parsedInput[0]](parsedInput[1:len(parsedInput)], &sellableItems)
+			} else {
+				if parsedInput[0] == "leave" {
+					break
+				} else if parsedInput[0] == "help" {
+					writeToPlayer(player.conn, "You are interacting with an NPC - listed below are the actions you can undertake")
+					for _, option := range GetKeys(options) {
+						writeToPlayerCompact(player.conn, option)
+					}
+				} else {
+					writeToPlayer(player.conn, "Unknown command")
+				}
+			}
+		}
 	},
 }
 
@@ -173,8 +195,6 @@ func initaliseGame() {
 }
 
 func handleConnection(conn net.Conn) {
-	var nonAlphanumericRegex = regexp.MustCompile(`[^a-zA-Z0-9 ]+`)
-
 	writeToPlayer(conn, LOGO)
 
 	// Create new player and retrieve name

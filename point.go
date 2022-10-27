@@ -72,7 +72,7 @@ var directions = map[string]func(point *Point) {
 
 func pickPerpendicularRandomDirection(lastDirection string) string {
 	directionsList := GetKeys(manhattanDirections)
-	newDirection := directionsList[len(directionsList) - 1]
+	newDirection := directionsList[rand.Intn(len(directionsList) - 1)]
 
 	if lastDirection == "north" && newDirection == "south" || lastDirection == "north" && newDirection == "north" {
 		return pickPerpendicularRandomDirection(lastDirection)
