@@ -78,7 +78,8 @@ func (player *Player) move(modifiers []string) {
 }
 
 func (player *Player) isWithinPlayableRegion() bool {
-	if (*player.coordinates).y > HEIGHT || (*player.coordinates).x > WIDTH || getWorldInstance().worldMap[(*player.coordinates).x][(*player.coordinates).y] == 0 {
+	//  getWorldInstance().worldMap[(*player.coordinates).x][(*player.coordinates).y] == 0
+	if (*player.coordinates).y > HEIGHT || (*player.coordinates).x > WIDTH {
 		return false
 	}
 	return true

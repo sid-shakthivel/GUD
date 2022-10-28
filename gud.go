@@ -90,7 +90,7 @@ func (eventType EventType) String() string {
 	case Enemy:
 		return "a dreaded foe"
 	default:
-		return "idk"
+		return "unknown"
 	}
 }
 
@@ -159,13 +159,58 @@ var events = map[EventType]func(player *Player, event Event) {
 		}
 	},
 	Enemy: func(player *Player, event Event) {
-		// Begin battle
+		// Get appropriate data
+		minimalAttacks, _ := os.ReadFile("data/attack/minimal.txt")
+		moderateAttacks, _ := os.ReadFile("data/attack/moderate.txt")
+		majorAttacks, _ := os.ReadFile("data/attack/major.txt")
+		minimalResponse, _ := os.ReadFile("data/attackResponse/minimal.txt")
+		moderateResponse, _ := os.ReadFile("data/attackResponse/moderate.txt")
+		majorResponse, _ := os.ReadFile("data/attackResponse/major.txt")
 
-		// Pick a random number of attacks/defenses
+		attacks := [][]string{strings.Split(string(minimalAttacks), "\n"), strings.Split(string(moderateAttacks), "\n"), strings.Split(string(majorAttacks), "\n")}
+		attackResponse := [][]string{strings.Split(string(minimalResponse), "\n"), strings.Split(string(moderateResponse), "\n"), strings.Split(string(majorResponse), "\n")}
 
-		// Cycle through random minmial/moderate/major attacks and minimal/moderate damages
+		enemyDamage := 0
+		playerDamage := 0
 
-		// Pick winner (between enemy and player) to deliver final major attack and major damage
+		// Battle commences for random duration
+		for i := 0; i < rand.Intn(3); i++ {
+			if player.weapon != nil {
+				// Select player attack which is based upon minimal/moderate/major
+				level := rand.Intn(len(attacks) - 1)
+				writeToPlayerCompact(player.conn, "Player " + attacks[level][rand.Intn(len(attacks) - 1)])
+				enemyDamage += level
+			} else {
+				// Select player attack which is based upon minimal/moderate
+				level := rand.Intn(len(attacks) - 2)
+				writeToPlayerCompact(player.conn, "Player " + attacks[level][rand.Intn(len(attacks) - 1)])
+				enemyDamage += level
+			}
+
+			// Select enemy response which is based upon minimal/moderate
+			writeToPlayerCompact(player.conn, attackResponse[rand.Intn(len(attacks) - 2)][rand.Intn(len(attacks) - 1)])
+
+			// Select enemy attack which is based upon minimal/moderate/major
+			level := rand.Intn(len(attacks) - 1)
+			writeToPlayerCompact(player.conn, event.name + " " + attacks[level][rand.Intn(len(attacks) - 1)])
+			playerDamage += level
+
+			// Select player response which is based upon minimal/moderate
+			writeToPlayerCompact(player.conn, attackResponse[rand.Intn(len(attacks) - 2)][rand.Intn(len(attacks) - 1)])
+		}
+
+		// Pick winner depedning on the number of attacks and select a final major attack and major response
+		if enemyDamage > playerDamage {
+			writeToPlayerCompact(player.conn, "Player " + attacks[2][rand.Intn(len(attacks) - 1)])
+			writeToPlayerCompact(player.conn, attackResponse[rand.Intn(len(attacks) - 1)][rand.Intn(2 - 1) + 1])
+		} else {
+			writeToPlayerCompact(player.conn, event.name + " " + attacks[2][rand.Intn(len(attacks) - 1)])
+			writeToPlayerCompact(player.conn, attackResponse[rand.Intn(len(attacks) - 1)][rand.Intn(2 - 1) + 1])
+		}
+
+		writeToPlayerCompact(player.conn, "")
+
+		player.health -= playerDamage
 	},
 }
 
@@ -242,9 +287,13 @@ func initaliseGame() {
 		panic(err)
 	}
 
-	for _, name := range strings.Split(string(enemyNames), "\n") {
-		getWorldInstance().events = append(getWorldInstance().events, Event{*findFreeLocationInDungeon(), Enemy, name})
-	}
+	test := strings.Split(string(enemyNames), "\n")
+
+	getWorldInstance().events = append(getWorldInstance().events, Event{*NewPoint(16, 10), Enemy, test[0]})
+
+//	for _, name := range strings.Split(string(enemyNames), "\n") {
+//		getWorldInstance().events = append(getWorldInstance().events, Event{*findFreeLocationInDungeon(), Enemy, name})
+//	}
 }
 
 func handleConnection(conn net.Conn) {
@@ -262,9 +311,9 @@ func handleConnection(conn net.Conn) {
 	nameStr := "sid"
 
 	inventory := make([]Item, 1)
-	inventory[0] = Item{ "blonde", Point {15, 20, 0, 0, nil}, true, Random}
+	inventory[0] = Item{ "blonde", Point {15, 8, 0, 0, nil}, true, Random}
 
-	player := NewPlayer(findFreeLocationInDungeon(), conn, nameStr)
+	player := NewPlayer(NewPoint(15, 10), conn, nameStr)
 
 	// Dictionary of actions which players can undertake
 	var actions = map[string]func(modifiers []string){
