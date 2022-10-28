@@ -108,27 +108,31 @@ type Event struct {
 var events = map[EventType]func(player *Player, event Event) {
 	Hotspot: func(player *Player, event Event) {
 		// Finding a hotspot moves the player to a random location within the dungeon
-		fmt.Println("You have found a hotspot - prepare to be deported")
+		player.coordinates = findFreeLocationInDungeon()
 
-		// Destroy the hotspot as they are single use
-		newPos := findFreeLocationInDungeon()
-		player.coordinates = newPos
+		writeToPlayer(player.conn, "You have been deported to " + player.coordinates.format())
+
+		// Destroy event
+		eventIndex := Find(getWorldInstance().events, func (innerEvent Event) bool {
+			return innerEvent == event
+		})
+
+		getWorldInstance().events = RemoveAtIndex(getWorldInstance().events, eventIndex)
 	},
 	NPC: func(player *Player, event Event) {
 		// NPC's sell random items to user on their request
 		writeToPlayer(player.conn, "Goodday fellow union member I am " + event.name + "! What would you like to buy?")
-		writeToPlayer(player.conn, "I sell the following items: ")
+		writeToPlayerCompact(player.conn, "I sell the following items: ")
 
 		allItemsPresent := getWorldInstance().items
 		sellableItems := make([]Item, 0)
 
 		for n := 0; n < rand.Intn(len(allItemsPresent)); n++ {
-			sellableItems = append(sellableItems, getWorldInstance().items[rand.Intn(len(allItemsPresent))])
+			item := getWorldInstance().items[rand.Intn(len(allItemsPresent))]
+			sellableItems = append(sellableItems, item)
+			player.conn.Write([]byte(item.description + ","))
 		}
-
-		writeToPlayer(player.conn, Reduce(sellableItems, func (item Item, acc string) string {
-			return acc + item.description
-		}, ""))
+		writeToPlayerCompact(player.conn, "\n")
 
 		var options = map[string]func(modifiers []string, items *[]Item){
 			"buy": player.buyItem,
@@ -146,12 +150,15 @@ var events = map[EventType]func(player *Player, event Event) {
 				options[parsedInput[0]](parsedInput[1:len(parsedInput)], &sellableItems)
 			} else {
 				if parsedInput[0] == "leave" {
+					writeToPlayer(player.conn, "Good bye for now!")
 					break
 				} else if parsedInput[0] == "help" {
 					writeToPlayer(player.conn, "You are interacting with an NPC - listed below are the actions you can undertake")
 					for _, option := range GetKeys(options) {
 						writeToPlayerCompact(player.conn, option)
 					}
+					writeToPlayerCompact(player.conn, "leave")
+					writeToPlayer(player.conn, "help")
 				} else {
 					writeToPlayer(player.conn, "Unknown command")
 				}
@@ -274,6 +281,8 @@ func initaliseGame() {
 	for _, name := range strings.Split(string(npcNames), "\n") {
 		getWorldInstance().events = append(getWorldInstance().events, Event{*findFreeLocationInDungeon(), NPC, name})
 	}
+
+	getWorldInstance().events = append(getWorldInstance().events, Event{*NewPoint(15, 9), NPC, "rachel"})
 
 	// Generate enemies from data files
 	enemyNames, err := os.ReadFile("data/enemies.txt")

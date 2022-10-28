@@ -334,6 +334,11 @@ Signature `equip {item1 name}`
 Equips the weapon/armour to a player
 */
 func (player *Player) equip(modifiers[] string) {
+	if len(modifiers) < 1 {
+		player.displayError("")
+		return
+	}
+
 	// Get item information
 	itemIndex := Find(player.inventory, func (item Item) bool {
 		return item.description == modifiers[0]
@@ -363,6 +368,11 @@ Signature `unequip {item1 name}`
 Equips the weapon/armour to a player
 */
 func (player *Player) unequip(modifiers[] string) {
+	if len(modifiers) < 1 {
+		player.displayError("")
+		return
+	}
+
 	// Get item information
 	itemIndex := Find(player.inventory, func (item Item) bool {
 		return item.description == modifiers[0]
@@ -449,6 +459,8 @@ func (player *Player) viewStats(modifiers []string) {
 
 
 func (player *Player) printMap(modifiers []string) {
+	player.conn.Write([]byte("\n"))
+
 	worldMap := getWorldInstance().worldMap
 	for i := 0; i < HEIGHT; i++ {
 		for j := 0; j < WIDTH; j++ {
@@ -470,6 +482,11 @@ Signature: `buy {itemName}`
 Allows player to buy an item from a seler in exchange for gold
 */
 func (player *Player) buyItem(modifiers []string, items *[]Item) {
+	if len(modifiers) < 1 {
+		player.displayError("")
+		return
+	}
+
 	itemIndex := Find(*items, func (item Item) bool {
 		return item.description == modifiers[0]
 	})
@@ -489,7 +506,7 @@ func (player *Player) buyItem(modifiers []string, items *[]Item) {
 	}
 
 	player.inventory = append(player.inventory, item)
-	writeToPlayer(player.conn, "Purchased " + item.description + " for " + strconv.Itoa(price))
+	writeToPlayer(player.conn, "Purchased " + item.description + " for " + strconv.Itoa(price) + " gold")
 	player.gold -= price
 	*items = RemoveAtIndex(*items, itemIndex)
 }
@@ -499,6 +516,11 @@ Signature: `sell {itemName}`
 Allows player to sel an item they possess in exchange for gold
 */
 func (player *Player) sellItem(modifiers []string, items *[]Item) {
+	if len(modifiers) < 1 {
+		player.displayError("")
+		return
+	}
+
 	itemIndex := Find(player.inventory, func (item Item) bool {
 		return item.description == modifiers[0]
 	})
@@ -512,7 +534,7 @@ func (player *Player) sellItem(modifiers []string, items *[]Item) {
 	price := rand.Intn(10) // Generate random price
 
 	*items = append(*items, item)
-	writeToPlayer(player.conn, "Sold " + item.description + " for " + strconv.Itoa(price))
+	writeToPlayer(player.conn, "Sold " + item.description + " for " + strconv.Itoa(price) + " gold")
 	player.gold += price
 	player.inventory = RemoveAtIndex(player.inventory, itemIndex)
 }
