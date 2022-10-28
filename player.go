@@ -524,6 +524,3 @@ func (player *Player) displayError(message string) {
 		player.conn.Write([]byte("\n" + message + "\n\n"))
 	}
 }
-
-
-

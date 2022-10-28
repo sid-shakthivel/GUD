@@ -246,24 +246,22 @@ func initaliseGame() {
 	content, err := os.ReadFile("data/items.txt")
 
 	itemNames := strings.Split(string(content), "\n")
-//
-//	for _, itemName := range itemNames {
-//		// Find a random location within the dungeon to place the item which is free
-//		randomPoint := findFreeLocationInDungeon()
-//		itemType := Random
-//
-//		// Check type
-//		if strings.Contains(itemName, "armour") {
-//			itemType = Armour
-//		} else if strings.Contains(itemName, "sword") || strings.Contains(itemName, "spear") {
-//			itemType = Weapon
-//		}
-//
-//		// Push new item to global items array
-//		getWorldInstance().items = append(getWorldInstance().items, Item{itemName, *randomPoint, true, itemType })
-//	}
 
-	getWorldInstance().items = append(getWorldInstance().items, Item{itemNames[len(itemNames) - 1], *NewPoint(15, 9), true, Weapon })
+	for _, itemName := range itemNames {
+		// Find a random location within the dungeon to place the item which is free
+		randomPoint := findFreeLocationInDungeon()
+		itemType := Random
+
+		// Check type
+		if strings.Contains(itemName, "armour") {
+			itemType = Armour
+		} else if strings.Contains(itemName, "sword") || strings.Contains(itemName, "spear") {
+			itemType = Weapon
+		}
+
+		// Push new item to global items array
+		getWorldInstance().items = append(getWorldInstance().items, Item{itemName, *randomPoint, true, itemType })
+	}
 
 	// Generate a random number of hotspots to be placed inside the world
 	for i := 0; i < rand.Intn(5); i++ {
@@ -366,5 +364,3 @@ func main() {
 	fmt.Println("Game loaded")
 	startServer()
 }
-
-
