@@ -244,27 +244,26 @@ func initaliseGame() {
 
 	// Retrieve items which are predefined in a text file and add them into world
 	content, err := os.ReadFile("data/items.txt")
-	if err != nil {
-		panic(err)
-	}
 
 	itemNames := strings.Split(string(content), "\n")
+//
+//	for _, itemName := range itemNames {
+//		// Find a random location within the dungeon to place the item which is free
+//		randomPoint := findFreeLocationInDungeon()
+//		itemType := Random
+//
+//		// Check type
+//		if strings.Contains(itemName, "armour") {
+//			itemType = Armour
+//		} else if strings.Contains(itemName, "sword") || strings.Contains(itemName, "spear") {
+//			itemType = Weapon
+//		}
+//
+//		// Push new item to global items array
+//		getWorldInstance().items = append(getWorldInstance().items, Item{itemName, *randomPoint, true, itemType })
+//	}
 
-	for _, itemName := range itemNames {
-		// Find a random location within the dungeon to place the item which is free
-		randomPoint := findFreeLocationInDungeon()
-		itemType := Random
-
-		// Check type
-		if strings.Contains(itemName, "armour") {
-			itemType = Armour
-		} else if strings.Contains(itemName, "sword") || strings.Contains(itemName, "spear") {
-			itemType = Weapon
-		}
-
-		// Push new item to global items array
-		getWorldInstance().items = append(getWorldInstance().items, Item{itemName, *randomPoint, true, itemType })
-	}
+	getWorldInstance().items = append(getWorldInstance().items, Item{itemNames[len(itemNames) - 1], *NewPoint(15, 9), true, Weapon })
 
 	// Generate a random number of hotspots to be placed inside the world
 	for i := 0; i < rand.Intn(5); i++ {
@@ -273,9 +272,6 @@ func initaliseGame() {
 
 	// Generate NPC's from data files
 	npcNames, err := os.ReadFile("data/npcNames.txt")
-	if err != nil {
-		panic(err)
-	}
 
 	for _, name := range strings.Split(string(npcNames), "\n") {
 		getWorldInstance().events = append(getWorldInstance().events, Event{*findFreeLocationInDungeon(), NPC, name})
@@ -287,13 +283,9 @@ func initaliseGame() {
 		panic(err)
 	}
 
-	test := strings.Split(string(enemyNames), "\n")
-
-	getWorldInstance().events = append(getWorldInstance().events, Event{*NewPoint(16, 10), Enemy, test[0]})
-
-//	for _, name := range strings.Split(string(enemyNames), "\n") {
-//		getWorldInstance().events = append(getWorldInstance().events, Event{*findFreeLocationInDungeon(), Enemy, name})
-//	}
+	for _, name := range strings.Split(string(enemyNames), "\n") {
+		getWorldInstance().events = append(getWorldInstance().events, Event{*findFreeLocationInDungeon(), Enemy, name})
+	}
 }
 
 func handleConnection(conn net.Conn) {

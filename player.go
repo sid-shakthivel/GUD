@@ -274,6 +274,15 @@ func (player *Player) drop(modifiers []string) {
 
 	item := player.inventory[itemIndex]
 
+	// Remove from weapon/armour
+	if player.weapon != nil && player.weapon.description == item.description {
+		player.weapon = nil
+	}
+
+	if player.armour != nil && player.armour.description == item.description {
+		player.armour = nil
+	}
+
 	getWorldInstance().items = append(getWorldInstance().items, item)
 	player.inventory = RemoveAtIndex(player.inventory, itemIndex)
 
@@ -335,7 +344,7 @@ func (player *Player) equip(modifiers[] string) {
 		return
 	}
 
-	item := getWorldInstance().items[itemIndex]
+	item := player.inventory[itemIndex]
 
 	switch item.itemType {
 	case Armour:
@@ -364,13 +373,33 @@ func (player *Player) unequip(modifiers[] string) {
 		return
 	}
 
-	item := getWorldInstance().items[itemIndex]
+	item := player.inventory[itemIndex]
 
 	switch item.itemType {
 	case Armour:
+		if player.armour == nil {
+			player.displayError("Armour is not equipped")
+			return
+		}
+
+		if player.armour.description != item.description {
+			player.displayError(item.description + " is not equipped fool")
+			return
+		}
+
 		player.armour = nil
 		writeToPlayer(player.conn, "Unequiped " + item.description + " as armour")
 	case Weapon:
+		if player.weapon == nil {
+			player.displayError("Weapon is not equipped")
+			return
+		}
+
+		if player.weapon.description != item.description {
+			player.displayError(item.description + " is not equipped fool")
+			return
+		}
+
 		player.weapon = nil
 		writeToPlayer(player.conn, "Unequiped " + item.description + " as weapon")
 	default:
