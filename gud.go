@@ -59,6 +59,8 @@ func handleConnection(conn net.Conn) {
 		"unequip": player.unequip,
 		"quit":    player.quit,
 		"map":     player.printMap,
+		"jump":    player.jump,
+		"routes":  player.routes,
 		"help":    player.help,
 	}
 
@@ -75,6 +77,10 @@ func handleConnection(conn net.Conn) {
 
 		// Parse input by changing all special
 		parsedInput := strings.Split(nonAlphanumericRegex.ReplaceAllString(string(bytes.Trim(tmp, "\x00")), ""), " ")
+
+		for _, word := range parsedInput {
+			word = strings.ToLower(word)
+		}
 
 		if ContainsKey(actions, parsedInput[0]) {
 			actions[parsedInput[0]](parsedInput[1:len(parsedInput)])
@@ -104,6 +110,16 @@ func startServer() {
 }
 
 func main() {
+//	list := List{}
+//	list.Insert(1)
+//	list.Insert(2)
+//
+//	p := list.head
+//	for p != nil {
+//		fmt.Println(p.data)
+//		p = p.next
+//	}
+
 	getWorldInstance()
 	fmt.Println("Game loaded")
 	startServer()

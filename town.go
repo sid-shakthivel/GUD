@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"fmt"
 )
 
 // World simply consists of all of the rooms put together
@@ -39,20 +40,21 @@ func NewWorld() *World {
 
 	var towns []Town
 
-	for i := 1; i < rand.Intn(5) + 1; i++ {
+	for i := 1; i < rand.Intn(5) + 3; i++ {
 		// Create new room and add it to slice
 		townNames, townName = GetRandomAndRemove(townNames)
 		newTown := NewTown(townName)
 		towns = append(towns, *newTown)
 
-		// Pick a random room and make the new room adjacent to it - check it's not the newly created room
-		town := towns[rand.Intn(i)]
-		if town.name != (*newTown).name {
-			town.adjacentTowns[rand.Intn(3)] = *newTown
+		// Pick room and make the new room adjacent to it - check it's not the newly created room
+		if (i - 1) > 0 {
+			// Need to go back out
+			towns[i - 2].adjacentTowns[0] = *newTown
 		}
 	}
 
 	w.towns = towns
+	fmt.Println("Created", len(towns), "rooms")
 
 	return w
 }
@@ -76,7 +78,7 @@ func NewTown(name string) *Town {
 	r.adjacentTowns = make([]Town, 4)
 
 	// Pick random description
-	descriptions, _ := os.ReadFile("data/items.txt")
+	descriptions, _ := os.ReadFile("data/townDescription.txt")
 	townDescriptions := strings.Split(string(descriptions), "\n")
 	r.description = strings.Replace(townDescriptions[rand.Intn(len(townDescriptions))], "{}", r.name, -1)
 
@@ -112,10 +114,12 @@ func NewTown(name string) *Town {
 
 	itemNames := strings.Split(string(content), "\n")
 
-	for _, itemName := range itemNames {
+	for i := 0; i < rand.Intn(len(itemNames)); i++ {
 		// Find a random location within the dungeon to place the item which is free
 		randomPoint := findFreeLocationInDungeon(r.dungeonLayout)
 		itemType := Random
+
+		itemName := itemNames[i]
 
 		// Check type
 		if strings.Contains(itemName, "armour") {
@@ -170,5 +174,20 @@ func (town *Town) checkEmptyTown(index int) (bool, string, int) {
 		return false, "No town that way m8", index
 	} else {
 		return true, "", 0
+	}
+}
+
+func convertToText(index int) string {
+	switch index {
+	case 0:
+		return "north"
+	case 1:
+		return "south"
+	case 2:
+		return "east"
+	case 3:
+		return "west"
+	default:
+		return "unknown"
 	}
 }

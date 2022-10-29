@@ -80,8 +80,7 @@ func (player *Player) move(modifiers []string) {
 }
 
 func (player *Player) isWithinPlayableRegion() bool {
-	//  player.currentTown().dungeonLayout[(*player.coordinates).x][(*player.coordinates).y] == 0
-	if (*player.coordinates).y > HEIGHT || (*player.coordinates).x > WIDTH {
+	if (*player.coordinates).y > HEIGHT || (*player.coordinates).x > WIDTH || player.currentTown.dungeonLayout[(*player.coordinates).x][(*player.coordinates).y] == 0 {
 		return false
 	}
 	return true
@@ -108,9 +107,16 @@ func (player *Player) scan(modifiers []string) {
 	// Check coordiantes of all items if they are within distance
 	for _, item := range player.currentTown.items {
 		if int(math.Abs(float64(item.coordinates.x - player.coordinates.x))) <= distance && int(math.Abs(float64(item.coordinates.y - player.coordinates.y))) <= distance {
-			writeToPlayer(player.conn, "Found: " + item.description + " at " + item.coordinates.format())
+			writeToPlayerCompact(player.conn, "Found: " + item.description + " at " + item.coordinates.format())
 		}
 	}
+
+	for _, event := range player.currentTown.events {
+		if int(math.Abs(float64(event.coordinates.x - player.coordinates.x))) <= distance && int(math.Abs(float64(event.coordinates.y - player.coordinates.y))) <= distance {
+			writeToPlayerCompact(player.conn, "Found: " + event.eventType.String() + " at " + event.coordinates.format())
+		}
+	}
+
 	writeToPlayer(player.conn, "Scan finished")
 }
 
@@ -561,7 +567,17 @@ func (player *Player) jump(modifiers[]string) {
 	// Move player and provide a random town description
 	player.currentTown = player.currentTown.adjacentTowns[townIndex]
 
+	writeToPlayerCompact(player.conn, "")
 	writeToPlayer(player.conn, player.currentTown.description)
+}
+
+func (player *Player) routes(modifers[]string) {
+	writeToPlayerCompact(player.conn, "")
+	for i, test := range player.currentTown.adjacentTowns {
+		if test.name != "" {
+			writeToPlayer(player.conn, "You can go to " + test.name + " which is " + convertToText(i))
+		}
+	}
 }
 
 func (player *Player) displayError(message string) {
