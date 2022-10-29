@@ -60,7 +60,6 @@ func handleConnection(conn net.Conn) {
 		"quit":    player.quit,
 		"map":     player.printMap,
 		"jump":    player.jump,
-		"routes":  player.routes,
 		"help":    player.help,
 	}
 
@@ -69,6 +68,7 @@ func handleConnection(conn net.Conn) {
 	writeToPlayer(player.conn, "Welcome to GUD! "+nameStr)
 
 	writeToPlayer(player.conn, player.currentTown.description)
+	player.listPaths()
 
 	for {
 		// Parse commands a user enters

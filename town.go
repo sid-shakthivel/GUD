@@ -40,16 +40,35 @@ func NewWorld() *World {
 
 	var towns []Town
 
-	for i := 1; i < rand.Intn(5) + 3; i++ {
+	for i := 0; i < rand.Intn(5) + 2; i++ {
 		// Create new room and add it to slice
 		townNames, townName = GetRandomAndRemove(townNames)
 		newTown := NewTown(townName)
+
 		towns = append(towns, *newTown)
 
 		// Pick room and make the new room adjacent to it - check it's not the newly created room
-		if (i - 1) > 0 {
-			// Need to go back out
-			towns[i - 2].adjacentTowns[0] = *newTown
+		if (i - 1) >= 0 {
+			routeNum := rand.Intn(3)
+			oppRouteNum := 0
+
+			switch routeNum {
+			case 0: {
+				oppRouteNum = 1
+			}
+			case 1: {
+				oppRouteNum = 0
+			}
+			case 2: {
+				oppRouteNum = 3
+			}
+			case 3: {
+				oppRouteNum = 2
+			}
+			}
+
+			newTown.adjacentTowns[oppRouteNum] = towns[1 - 1]
+			towns[i - 1].adjacentTowns[routeNum] = *newTown
 		}
 	}
 
@@ -169,11 +188,23 @@ func (town *Town) checkAdjacentTown(direction string) (bool, string, int) {
 	}
 }
 
+func (town *Town) getRoutes() []string {
+	var routes = make([]string, 0)
+
+	for i, adjacentTown := range town.adjacentTowns {
+		if adjacentTown.name != "" {
+			routes = append(routes, "You can go to " + adjacentTown.name + " which is " + convertToText(i))
+		}
+	}
+
+	return routes
+}
+
 func (town *Town) checkEmptyTown(index int) (bool, string, int) {
 	if town.adjacentTowns[index].name == ""  {
 		return false, "No town that way m8", index
 	} else {
-		return true, "", 0
+		return true, "", index
 	}
 }
 

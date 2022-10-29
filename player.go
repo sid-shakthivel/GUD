@@ -2,6 +2,7 @@ package main
 
 import (
 	"math"
+	"fmt"
 	"sort"
 	"strconv"
 	"net"
@@ -569,15 +570,16 @@ func (player *Player) jump(modifiers[]string) {
 
 	writeToPlayerCompact(player.conn, "")
 	writeToPlayer(player.conn, player.currentTown.description)
+	player.listPaths()
+
+	fmt.Println("test")
 }
 
-func (player *Player) routes(modifers[]string) {
-	writeToPlayerCompact(player.conn, "")
-	for i, test := range player.currentTown.adjacentTowns {
-		if test.name != "" {
-			writeToPlayer(player.conn, "You can go to " + test.name + " which is " + convertToText(i))
-		}
+func (player *Player) listPaths() {
+	for _, route := range player.currentTown.getRoutes() {
+		writeToPlayerCompact(player.conn, route)
 	}
+	writeToPlayerCompact(player.conn, "")
 }
 
 func (player *Player) displayError(message string) {
