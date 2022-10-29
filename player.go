@@ -1,6 +1,7 @@
 package main
 
 import (
+	"debug/macho"
 	"math"
 	"sort"
 	"strconv"
@@ -8,7 +9,7 @@ import (
 	"math/rand"
 )
 
-// Players serve as clients to the server which navigate around the world
+// Player serve as clients to the server which navigate around the world
 type Player struct {
 	coordinates *Point
 	inventory   []Item
@@ -19,9 +20,10 @@ type Player struct {
 	health int
 	gold int
 	actions map[string]func(modifiers []string)
+	currentTown Town
 }
 
-func NewPlayer(coordinates *Point, conn net.Conn, name string) *Player {
+func NewPlayer(coordinates *Point, conn net.Conn, name string, town Town) *Player {
 	inventory := make([]Item, 1)
 	inventory[0] = Item{ "blonde", Point {15, 20, 0, 0, nil}, true, Random}
 
@@ -32,13 +34,14 @@ func NewPlayer(coordinates *Point, conn net.Conn, name string) *Player {
 	p.name = name
 	p.health = 100
 	p.gold = 100
+	p.currentTown = town
 
 	return p
 }
 
 /*
 Signature `move {direction} {distance}`
-Player coordinates are manipulated in a direction until they hit distance or a wall
+Player coordinates are manipulated in a direction within an individual town until they hit distance or a wall
 */
 func (player *Player) move(modifiers []string) {
 	// Parse input correctly
@@ -69,7 +72,7 @@ func (player *Player) move(modifiers []string) {
 	writeToPlayer(player.conn, "- Your position is " + player.coordinates.format())
 
 	// Check if player has encountered an event and trigger one
-	for _, event := range getWorldInstance().events {
+	for _, event := range player.currentTown.events {
 		if event.coordinates.x == player.coordinates.x && event.coordinates.y == player.coordinates.y {
 			writeToPlayer(player.conn, "You have found a " + event.eventType.String())
 			events[event.eventType](player, event)
@@ -78,7 +81,7 @@ func (player *Player) move(modifiers []string) {
 }
 
 func (player *Player) isWithinPlayableRegion() bool {
-	//  getWorldInstance().worldMap[(*player.coordinates).x][(*player.coordinates).y] == 0
+	//  player.currentTown().dungeonLayout[(*player.coordinates).x][(*player.coordinates).y] == 0
 	if (*player.coordinates).y > HEIGHT || (*player.coordinates).x > WIDTH {
 		return false
 	}
@@ -104,7 +107,7 @@ func (player *Player) scan(modifiers []string) {
 	}
 
 	// Check coordiantes of all items if they are within distance
-	for _, item := range getWorldInstance().items {
+	for _, item := range player.currentTown.items {
 		if int(math.Abs(float64(item.coordinates.x - player.coordinates.x))) <= distance && int(math.Abs(float64(item.coordinates.y - player.coordinates.y))) <= distance {
 			writeToPlayer(player.conn, "Found: " + item.description + " at " + item.coordinates.format())
 		}
@@ -132,7 +135,7 @@ func (player *Player) locate(modifiers []string) {
 	if len(modifiers) < 1 { player.displayError("") }
 
 	// Find item position in world
-	itemIndex := Find(getWorldInstance().items, func (item Item) bool {
+	itemIndex := Find(player.currentTown.items, func (item Item) bool {
 		return item.description == modifiers[0]
 	})
 
@@ -141,7 +144,7 @@ func (player *Player) locate(modifiers []string) {
 		return
 	}
 
-	itemPosition := getWorldInstance().items[itemIndex].coordinates
+	itemPosition := player.currentTown.items[itemIndex].coordinates
 
 	var openNodes []Point // Nodes that have calculated cost
 	var closedNodes []Point // Nodes that haven't calculated cost
@@ -166,7 +169,7 @@ func (player *Player) locate(modifiers []string) {
 			node := currentNode
 			path = append(path, node)
 
-			writeToPlayer(player.conn, "A path has been uncovered - follow it to find the " + getWorldInstance().items[itemIndex].description)
+			writeToPlayer(player.conn, "A path has been uncovered - follow it to find the " + player.currentTown.items[itemIndex].description)
 
 			writeToPlayer(player.conn, node.format())
 
@@ -193,7 +196,7 @@ func (player *Player) locate(modifiers []string) {
 
 			for _, neighbour := range neighbours {
 				// Check if it's walkable (world[neighbour.x][neighbour.y] == 1) and not on the closed list
-				if !neighbour.ContainsPoint(closedNodes) && getWorldInstance().worldMap[neighbour.x][neighbour.y] == 1 {
+				if !neighbour.ContainsPoint(closedNodes) && player.currentTown.dungeonLayout[neighbour.x][neighbour.y] == 1 {
 					cost := calculateHeuristicCost(currentNode, neighbour) + currentNode.gcost
 
 					if cost < neighbour.gcost || !neighbour.ContainsPoint(openNodes) {
@@ -222,7 +225,7 @@ func (player *Player) pickup(modifiers []string) {
 	if len(modifiers) < 1 { player.displayError("") }
 
 	// Search items array for item requested to get item
-	itemIndex := Find(getWorldInstance().items, func (item Item) bool {
+	itemIndex := Find(player.currentTown.items, func (item Item) bool {
 		return item.description == modifiers[0]
 	})
 
@@ -231,7 +234,7 @@ func (player *Player) pickup(modifiers []string) {
 		return
 	}
 
-	item := getWorldInstance().items[itemIndex]
+	item := player.currentTown.items[itemIndex]
 
 	if item.coordinates.x != player.coordinates.x || item.coordinates.y != player.coordinates.y {
 		player.displayError("You are not at the location of the item")
@@ -244,7 +247,7 @@ func (player *Player) pickup(modifiers []string) {
 	case Random, Weapon, Armour:
 		player.inventory = append(player.inventory, item)
 		writeToPlayer(player.conn, "Picked up " + item.description)
-		getWorldInstance().items = RemoveAtIndex(getWorldInstance().items, itemIndex)
+		player.currentTown.items = RemoveAtIndex(player.currentTown.items, itemIndex)
 	default:
 		player.displayError("Cannot pickup an events object - investigate it pronto")
 		return
@@ -283,7 +286,7 @@ func (player *Player) drop(modifiers []string) {
 		player.armour = nil
 	}
 
-	getWorldInstance().items = append(getWorldInstance().items, item)
+	player.currentTown.items = append(player.currentTown.items, item)
 	player.inventory = RemoveAtIndex(player.inventory, itemIndex)
 
 	writeToPlayer(player.conn, "Dropped " + item.description)
@@ -461,7 +464,7 @@ func (player *Player) viewStats(modifiers []string) {
 func (player *Player) printMap(modifiers []string) {
 	player.conn.Write([]byte("\n"))
 
-	worldMap := getWorldInstance().worldMap
+	worldMap := player.currentTown.dungeonLayout
 	for i := 0; i < HEIGHT; i++ {
 		for j := 0; j < WIDTH; j++ {
 			if j == player.coordinates.x && i == player.coordinates.y {
@@ -537,6 +540,27 @@ func (player *Player) sellItem(modifiers []string, items *[]Item) {
 	writeToPlayer(player.conn, "Sold " + item.description + " for " + strconv.Itoa(price) + " gold")
 	player.gold += price
 	player.inventory = RemoveAtIndex(player.inventory, itemIndex)
+}
+
+/*
+Signature: `jump {direction}`
+Transports a player to another town within the world
+*/
+func (player *Player) jump(modifiers[]string) {
+	if len(modifiers) > 1 {
+		player.displayError("")
+		return
+	}
+
+	isRoom, message, townIndex := player.currentTown.checkAdjacentTown(modifiers[0])
+
+	if !isRoom {
+		player.displayError(message)
+		return
+	}
+
+	// Move player and provide a random town description
+	player.currentTown = player.currentTown.adjacentTowns[townIndex]
 }
 
 func (player *Player) displayError(message string) {

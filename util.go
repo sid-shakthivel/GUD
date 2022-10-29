@@ -4,6 +4,7 @@ import (
 	"net"
 	"unicode"
 	"math"
+	"math/rand"
 )
 
 func min(x, y int) int {
@@ -89,6 +90,13 @@ func GetValues[T comparable, U any] (m map[T]U) [] U {
 	return values
 }
 
+func GetRandomAndRemove[T any] (s []T) ([]T, T) {
+	index := rand.Intn(len(s) - 1)
+	element := s[index]
+	s = RemoveAtIndex(s, index)
+	return s, element
+}
+
 func writeToPlayer(conn net.Conn, text string) {
 	conn.Write([]byte(text + "\n\n"))
 }
@@ -112,3 +120,4 @@ func calculateHeuristicCost(nodeA Point, nodeB Point) int {
 		return 14 * deltaX + 10 * (deltaY - deltaX)
 	}
 }
+

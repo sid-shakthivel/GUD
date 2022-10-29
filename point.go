@@ -6,10 +6,10 @@ import (
 )
 
 type Point struct {
-	x int
-	y int
-	gcost int // Cost of start point to end goal
-	hcost int // Heuristic cost estimated cost from node to goal
+	x      int
+	y      int
+	gcost  int // Cost of start point to end goal
+	hcost  int // Heuristic cost estimated cost from node to goal
 	parent *Point
 }
 
@@ -24,7 +24,7 @@ func NewPoint(x int, y int) *Point {
 	return p
 }
 
-var manhattanDirections = map[string]func(point *Point) {
+var manhattanDirections = map[string]func(point *Point){
 	"north": func(point *Point) {
 		point.y = min((*point).y+1, HEIGHT)
 	},
@@ -39,7 +39,7 @@ var manhattanDirections = map[string]func(point *Point) {
 	},
 }
 
-var directions = map[string]func(point *Point) {
+var directions = map[string]func(point *Point){
 	"north": func(point *Point) {
 		point.y = min((*point).y+1, HEIGHT)
 	},
@@ -72,7 +72,7 @@ var directions = map[string]func(point *Point) {
 
 func pickPerpendicularRandomDirection(lastDirection string) string {
 	directionsList := GetKeys(manhattanDirections)
-	newDirection := directionsList[rand.Intn(len(directionsList) - 1)]
+	newDirection := directionsList[rand.Intn(len(directionsList)-1)]
 
 	if lastDirection == "north" && newDirection == "south" || lastDirection == "north" && newDirection == "north" {
 		return pickPerpendicularRandomDirection(lastDirection)
@@ -93,17 +93,17 @@ func pickPerpendicularRandomDirection(lastDirection string) string {
 	return newDirection
 }
 
-func findFreeLocationInDungeon() *Point {
+func findFreeLocationInDungeon(worldMap [WIDTH][HEIGHT]int) *Point {
 	// Get random coordinate and ensure dungeon space exists there
 	randX := rand.Intn(WIDTH)
 	randY := rand.Intn(HEIGHT)
 
-	pos := getWorldInstance().worldMap[randX][randY]
+	pos := worldMap[randX][randY]
 
 	if pos == 1 {
 		return NewPoint(randX, randY)
 	} else {
-		return findFreeLocationInDungeon()
+		return findFreeLocationInDungeon(worldMap)
 	}
 }
 
