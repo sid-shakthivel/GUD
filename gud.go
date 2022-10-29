@@ -66,6 +66,8 @@ func handleConnection(conn net.Conn) {
 
 	writeToPlayer(player.conn, "Welcome to GUD! "+nameStr)
 
+	writeToPlayer(player.conn, player.currentTown.description)
+
 	for {
 		// Parse commands a user enters
 		tmp := make([]byte, 256)

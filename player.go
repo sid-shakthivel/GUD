@@ -1,7 +1,6 @@
 package main
 
 import (
-	"debug/macho"
 	"math"
 	"sort"
 	"strconv"
@@ -561,6 +560,8 @@ func (player *Player) jump(modifiers[]string) {
 
 	// Move player and provide a random town description
 	player.currentTown = player.currentTown.adjacentTowns[townIndex]
+
+	writeToPlayer(player.conn, player.currentTown.description)
 }
 
 func (player *Player) displayError(message string) {

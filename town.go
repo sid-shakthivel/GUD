@@ -66,6 +66,7 @@ type Town struct {
 	events        []Event            // Slice of events
 	name          string             // Name
 	adjacentTowns []Town             // Adjoining to this room in a specific direction [North, South, East, West]
+	description string
 }
 
 func NewTown(name string) *Town {
@@ -73,6 +74,11 @@ func NewTown(name string) *Town {
 
 	r.name = name
 	r.adjacentTowns = make([]Town, 4)
+
+	// Pick random description
+	descriptions, _ := os.ReadFile("data/items.txt")
+	townDescriptions := strings.Split(string(descriptions), "\n")
+	r.description = strings.Replace(townDescriptions[rand.Intn(len(townDescriptions))], "{}", r.name, -1)
 
 	// Pick random start point within the array
 	var point = Point{WIDTH / 2, HEIGHT / 2, 0, 0, nil}
