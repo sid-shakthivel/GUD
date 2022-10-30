@@ -31,15 +31,13 @@ func handleConnection(conn net.Conn) {
 	writeToPlayer(conn, BANNER)
 
 	// Create new player and retrieve name
-	//	writeToPlayer(conn, "Good day fellow union member!")
-	//	writeToPlayer(conn, "By what do you wish to be addressed by?")
-	//
-	//	nameBytes := make([]byte, 256)
-	//	_, _ = conn.Read(nameBytes)
+	writeToPlayer(conn, "Good day fellow union member!")
+	writeToPlayer(conn, "By what do you wish to be addressed by?")
 
-	//	nameStr := nonAlphanumericRegex.ReplaceAllString(string(nameBytes), "")
+	nameBytes := make([]byte, 256)
+	_, _ = conn.Read(nameBytes)
 
-	nameStr := "sid"
+	nameStr := nonAlphanumericRegex.ReplaceAllString(string(nameBytes), "")
 
 	inventory := make([]Item, 1)
 	inventory[0] = Item{"blonde", Point{15, 8, 0, 0, nil}, true, Random}
@@ -60,6 +58,7 @@ func handleConnection(conn net.Conn) {
 		"quit":    player.quit,
 		"map":     player.printMap,
 		"jump":    player.jump,
+		"eat": 	   player.eat,
 		"help":    player.help,
 	}
 
@@ -68,7 +67,7 @@ func handleConnection(conn net.Conn) {
 	writeToPlayer(player.conn, "Welcome to GUD! "+nameStr)
 
 	writeToPlayer(player.conn, player.currentTown.description)
-	player.listPaths()
+	player.listRoutes()
 
 	for {
 		// Parse commands a user enters

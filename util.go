@@ -121,3 +121,6 @@ func calculateHeuristicCost(nodeA Point, nodeB Point) int {
 	}
 }
 
+func randNumInRange(min int, max int) int {
+	return rand.Intn(max - min) + min
+}

@@ -133,9 +133,7 @@ func NewTown(name string) *Town {
 
 	itemNames := strings.Split(string(content), "\n")
 
-	for i := 0; i < rand.Intn(len(itemNames)); i++ {
-		// Find a random location within the dungeon to place the item which is free
-		randomPoint := findFreeLocationInDungeon(r.dungeonLayout)
+	for i := 0; i < randNumInRange(10, len(itemNames)); i++ {
 		itemType := Random
 
 		itemName := itemNames[i]
@@ -148,26 +146,33 @@ func NewTown(name string) *Town {
 		}
 
 		// Push new item to global items array
-		r.items = append(r.items, Item{itemName, *randomPoint, true, itemType})
+		r.items = append(r.items, Item{itemName, *findFreeLocationInDungeon(r.dungeonLayout), true, itemType})
+	}
+
+	// Generate food items
+	for i := 0; i < randNumInRange(10, 20); i++ {
+		r.items = append(r.items, Item{itemNames[i], *findFreeLocationInDungeon(r.dungeonLayout), true, Food})
 	}
 
 	// Generate a random number of hotspots to be placed inside the world
-	for i := 0; i < rand.Intn(5); i++ {
+	for i := 0; i < randNumInRange(5, 15); i++ {
 		r.events = append(r.events, Event{*findFreeLocationInDungeon(r.dungeonLayout), Hotspot, ""})
 	}
 
 	// Generate NPC's from data files
-	npcNames, _ := os.ReadFile("data/npcNames.txt")
+	npcNamesFile, _ := os.ReadFile("data/npcNames.txt")
+	npcNames := strings.Split(string(npcNamesFile), "\n")
 
-	for _, name := range strings.Split(string(npcNames), "\n") {
-		r.events = append(r.events, Event{*findFreeLocationInDungeon(r.dungeonLayout), NPC, name})
+	for i := 0; i < randNumInRange(10, len(npcNames)); i++  {
+		r.events = append(r.events, Event{*findFreeLocationInDungeon(r.dungeonLayout), NPC, npcNames[rand.Intn(len(npcNames))]})
 	}
 
 	// Generate enemies from data files
-	enemyNames, _ := os.ReadFile("data/enemies.txt")
+	enemyNamesFile, _ := os.ReadFile("data/enemies.txt")
+	enemyNames := strings.Split(string(enemyNamesFile), "\n")
 
-	for _, name := range strings.Split(string(enemyNames), "\n") {
-		r.events = append(r.events, Event{*findFreeLocationInDungeon(r.dungeonLayout), Enemy, name})
+	for i := 0; i < randNumInRange(10, 15); i++ {
+		r.events = append(r.events, Event{*findFreeLocationInDungeon(r.dungeonLayout), Enemy, enemyNames[rand.Intn(len(enemyNames))]})
 	}
 
 	return r

@@ -1,13 +1,23 @@
 blonde
 republican
-money
+stars
 hood
 gold
 lantern
 torch
-iarmour
-darmour
-sarmour
-barmour
-isword
-gsword
+magic
+MBDTF
+headphones
+oven
+iron bars
+thugs
+iron armour
+diamond armour
+silver armour
+amazing armour
+bronze armour
+iron sword
+golden sword
+special sword
+golden spear
+diamond spear

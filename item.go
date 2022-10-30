@@ -17,6 +17,6 @@ type ItemType int
 const (
 	Armour ItemType = iota
 	Weapon
+	Food
 	Random
-	EventObject
 )

@@ -105,12 +105,16 @@ func (player *Player) scan(modifiers []string) {
 		panic(err)
 	}
 
+	writeToPlayerCompact(player.conn, "Items:")
+
 	// Check coordiantes of all items if they are within distance
 	for _, item := range player.currentTown.items {
 		if int(math.Abs(float64(item.coordinates.x - player.coordinates.x))) <= distance && int(math.Abs(float64(item.coordinates.y - player.coordinates.y))) <= distance {
 			writeToPlayerCompact(player.conn, "Found: " + item.description + " at " + item.coordinates.format())
 		}
 	}
+	
+	writeToPlayerCompact(player.conn, "Events:")
 
 	for _, event := range player.currentTown.events {
 		if int(math.Abs(float64(event.coordinates.x - player.coordinates.x))) <= distance && int(math.Abs(float64(event.coordinates.y - player.coordinates.y))) <= distance {
@@ -182,8 +186,10 @@ func (player *Player) locate(modifiers []string) {
 			for node.parent != nil {
 				node = *node.parent
 				path = append(path, node)
-				writeToPlayer(player.conn, node.format())
+				writeToPlayerCompact(player.conn, node.format())
 			}
+
+			writeToPlayerCompact(player.conn, "")
 
 			return
 		} else {
@@ -324,6 +330,11 @@ func (player *Player) combine(modifiers []string) {
 
 	if firstItemPosition < 0 || secondItemPosition < 0 {
 		player.displayError("You do not possess both items")
+		return
+	}
+
+	if player.inventory[firstItemPosition].itemType != Random || player.inventory[secondItemPosition].itemType != Random {
+		player.displayError("You can only combine random items")
 		return
 	}
 
@@ -570,12 +581,42 @@ func (player *Player) jump(modifiers[]string) {
 
 	writeToPlayerCompact(player.conn, "")
 	writeToPlayer(player.conn, player.currentTown.description)
-	player.listPaths()
+	player.listRoutes()
 
 	fmt.Println("test")
 }
 
-func (player *Player) listPaths() {
+/*
+Signature: `eat {item}
+Allows user to increase health (by random amount) by eating food within inventory
+*/
+func (player *Player) eat(modifiers []string) {
+	if len(modifiers) < 1 {
+		player.displayError("")
+		return
+	}
+
+	itemIndex := Find(player.inventory, func (item Item) bool {
+		return item.description == modifiers[0]
+	})
+
+	if itemIndex < -1 {
+		player.displayError("Item is not within index")
+		return
+	}
+
+	item := player.inventory[itemIndex]
+
+	if item.itemType != Food {
+		player.displayError("You can't eat that")
+		return
+	}
+
+	player.inventory = RemoveAtIndex(player.inventory, itemIndex)
+	player.health = min(rand.Intn(10) + player.health, 100)
+}
+
+func (player *Player) listRoutes() {
 	for _, route := range player.currentTown.getRoutes() {
 		writeToPlayerCompact(player.conn, route)
 	}
