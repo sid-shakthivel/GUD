@@ -64,17 +64,17 @@ func (player *Player) move(modifiers []string) {
 
 		if !player.isWithinPlayableRegion() {
 			player.coordinates = NewPoint(oldX, oldY)
-			writeToPlayer(player.conn, "A wall blocks your path - one must circumvent it")
+			player.write("A wall blocks your path - one must circumvent it")
 			break
 		}
 	}
 
-	writeToPlayer(player.conn, "- Your position is " + player.coordinates.format())
+	player.write("- Your position is " + player.coordinates.format())
 
 	// Check if player has encountered an event and trigger one
 	for _, event := range player.currentTown.events {
 		if event.coordinates.x == player.coordinates.x && event.coordinates.y == player.coordinates.y {
-			writeToPlayer(player.conn, "You have found a " + event.eventType.String())
+			player.write("You have found a " + event.eventType.String())
 			events[event.eventType](player, event)
 		}
 	}
@@ -93,36 +93,36 @@ Allows player to scan nearby to identify items and eventObjects in all direction
 */
 func (player *Player) scan(modifiers []string) {
 	// Check for parameters
-	if len(modifiers) < 1 {
+	if len(modifiers) < 1 || !isInt(modifiers[0]) {
 		player.displayError("")
 		return
 	}
 
 	// Looks for unit block in all directions to check for item and reports back to user
-
 	distance, err := strconv.Atoi(modifiers[0])
 	if err != nil {
-		panic(err)
+		player.displayError("")
+		return
 	}
 
-	writeToPlayerCompact(player.conn, "Items:")
+	player.writeCompact("Items:")
 
 	// Check coordiantes of all items if they are within distance
 	for _, item := range player.currentTown.items {
 		if int(math.Abs(float64(item.coordinates.x - player.coordinates.x))) <= distance && int(math.Abs(float64(item.coordinates.y - player.coordinates.y))) <= distance {
-			writeToPlayerCompact(player.conn, "Found: " + item.description + " at " + item.coordinates.format())
+			player.writeCompact("Found: " + item.description + " at " + item.coordinates.format())
 		}
 	}
 	
-	writeToPlayerCompact(player.conn, "Events:")
+	player.writeCompact("Events:")
 
 	for _, event := range player.currentTown.events {
 		if int(math.Abs(float64(event.coordinates.x - player.coordinates.x))) <= distance && int(math.Abs(float64(event.coordinates.y - player.coordinates.y))) <= distance {
-			writeToPlayerCompact(player.conn, "Found: " + event.eventType.String() + " at " + event.coordinates.format())
+			player.writeCompact("Found: " + event.eventType.String() + " at " + event.coordinates.format())
 		}
 	}
 
-	writeToPlayer(player.conn, "Scan finished")
+	player.write("Scan finished")
 }
 
 // Check if a point slice contains a point with the same coordiantes
@@ -145,7 +145,7 @@ func (player *Player) locate(modifiers []string) {
 	if len(modifiers) < 1 { player.displayError("") }
 
 	// Find item position in world
-	itemIndex := Find(player.currentTown.items, func (item Item) bool {
+	itemIndex, item := Find(player.currentTown.items, func (item Item) bool {
 		return item.description == modifiers[0]
 	})
 
@@ -154,7 +154,7 @@ func (player *Player) locate(modifiers []string) {
 		return
 	}
 
-	itemPosition := player.currentTown.items[itemIndex].coordinates
+	itemPosition := item.coordinates
 
 	var openNodes []Point // Nodes that have calculated cost
 	var closedNodes []Point // Nodes that haven't calculated cost
@@ -179,17 +179,17 @@ func (player *Player) locate(modifiers []string) {
 			node := currentNode
 			path = append(path, node)
 
-			writeToPlayer(player.conn, "A path has been uncovered - follow it to find the " + player.currentTown.items[itemIndex].description)
+			player.write("A path has been uncovered - follow it to find the " + player.currentTown.items[itemIndex].description)
 
-			writeToPlayer(player.conn, node.format())
+			player.write(node.format())
 
 			for node.parent != nil {
 				node = *node.parent
 				path = append(path, node)
-				writeToPlayerCompact(player.conn, node.format())
+				player.writeCompact(node.format())
 			}
 
-			writeToPlayerCompact(player.conn, "")
+			player.writeCompact("")
 
 			return
 		} else {
@@ -229,7 +229,7 @@ func (player *Player) locate(modifiers []string) {
 }
 
 /*
-Signature `pickup {item name}`
+Signature `pickup {item}`
 Add item to inventory
 */
 func (player *Player) pickup(modifiers []string) {
@@ -237,7 +237,7 @@ func (player *Player) pickup(modifiers []string) {
 	if len(modifiers) < 1 { player.displayError("") }
 
 	// Search items array for item requested to get item
-	itemIndex := Find(player.currentTown.items, func (item Item) bool {
+	itemIndex, item := Find(player.currentTown.items, func (item Item) bool {
 		return item.description == modifiers[0]
 	})
 
@@ -245,8 +245,6 @@ func (player *Player) pickup(modifiers []string) {
 		player.displayError("Item requested is not present within map")
 		return
 	}
-
-	item := player.currentTown.items[itemIndex]
 
 	if item.coordinates.x != player.coordinates.x || item.coordinates.y != player.coordinates.y {
 		player.displayError("You are not at the location of the item")
@@ -258,7 +256,7 @@ func (player *Player) pickup(modifiers []string) {
 	switch item.itemType {
 	case Random, Weapon, Armour:
 		player.inventory = append(player.inventory, item)
-		writeToPlayer(player.conn, "Picked up " + item.description)
+		player.write("Picked up " + item.description)
 		player.currentTown.items = RemoveAtIndex(player.currentTown.items, itemIndex)
 	default:
 		player.displayError("Cannot pickup an events object - investigate it pronto")
@@ -267,7 +265,7 @@ func (player *Player) pickup(modifiers []string) {
 }
 
 /*
-Signature `drop {item name}`
+Signature `drop {item}`
 Remove item from inventory and place at a coordinate
 */
 func (player *Player) drop(modifiers []string) {
@@ -278,7 +276,7 @@ func (player *Player) drop(modifiers []string) {
 	}
 
 	// Search inventory for the item, remove it from inventory and append to items global
-	itemIndex := Find(player.inventory, func (item Item) bool {
+	itemIndex, item := Find(player.inventory, func (item Item) bool {
 		return item.description == modifiers[0]
 	})
 
@@ -286,8 +284,6 @@ func (player *Player) drop(modifiers []string) {
 		player.displayError("Item requested is not present within your inventory")
 		return
 	}
-
-	item := player.inventory[itemIndex]
 
 	// Remove from weapon/armour
 	if player.weapon != nil && player.weapon.description == item.description {
@@ -301,11 +297,11 @@ func (player *Player) drop(modifiers []string) {
 	player.currentTown.items = append(player.currentTown.items, item)
 	player.inventory = RemoveAtIndex(player.inventory, itemIndex)
 
-	writeToPlayer(player.conn, "Dropped " + item.description)
+	player.write("Dropped " + item.description)
 }
 
 /*
-Signature `combine {item1 name} {item2 name}
+Signature `combine {item1} {item2}
 Combines item to solve puzzles (when included)
 */
 func (player *Player) combine(modifiers []string) {
@@ -320,11 +316,11 @@ func (player *Player) combine(modifiers []string) {
 		return
 	}
 
-	firstItemPosition := Find(player.inventory, func (item Item) bool {
+	firstItemPosition, firstItem := Find(player.inventory, func (item Item) bool {
 		return item.description == modifiers[0]
 	})
 
-	secondItemPosition := Find(player.inventory, func (item Item) bool {
+	secondItemPosition, secondItem := Find(player.inventory, func (item Item) bool {
 		return item.description == modifiers[1]
 	})
 
@@ -333,12 +329,12 @@ func (player *Player) combine(modifiers []string) {
 		return
 	}
 
-	if player.inventory[firstItemPosition].itemType != Random || player.inventory[secondItemPosition].itemType != Random {
+	if firstItem.itemType != Random || secondItem.itemType != Random {
 		player.displayError("You can only combine random items")
 		return
 	}
 
-	combinedItem := Item {player.inventory[firstItemPosition].description + player.inventory[secondItemPosition].description, player.inventory[firstItemPosition].coordinates, true, Random }
+	combinedItem := Item {firstItem.description + secondItem.description, firstItem.coordinates, true, Random }
 
 	player.inventory = append(player.inventory, combinedItem)
 
@@ -346,11 +342,11 @@ func (player *Player) combine(modifiers []string) {
 	player.inventory = RemoveAtIndex(player.inventory, firstItemPosition)
 	player.inventory = RemoveAtIndex(player.inventory, secondItemPosition)
 
-	writeToPlayer(player.conn, "Combined " + modifiers[0] + " and " + modifiers[1] + " to create a " + combinedItem.description)
+	player.write("Combined " + modifiers[0] + " and " + modifiers[1] + " to create a " + combinedItem.description)
 }
 
 /*
-Signature `equip {item1 name}`
+Signature `equip {item1}`
 Equips the weapon/armour to a player
 */
 func (player *Player) equip(modifiers[] string) {
@@ -360,7 +356,7 @@ func (player *Player) equip(modifiers[] string) {
 	}
 
 	// Get item information
-	itemIndex := Find(player.inventory, func (item Item) bool {
+	itemIndex, item := Find(player.inventory, func (item Item) bool {
 		return item.description == modifiers[0]
 	})
 
@@ -369,22 +365,20 @@ func (player *Player) equip(modifiers[] string) {
 		return
 	}
 
-	item := player.inventory[itemIndex]
-
 	switch item.itemType {
 	case Armour:
 		player.armour = &item
-		writeToPlayer(player.conn, "Equiped " + item.description + " as armour")
+		player.write("Equiped " + item.description + " as armour")
 	case Weapon:
 		player.weapon = &item
-		writeToPlayer(player.conn, "Equiped " + item.description + " as weapon")
+		player.write("Equiped " + item.description + " as weapon")
 	default:
 		player.displayError("Item cannot be equiped")
 	}
 }
 
 /*
-Signature `unequip {item1 name}`
+Signature `unequip {item1}`
 Equips the weapon/armour to a player
 */
 func (player *Player) unequip(modifiers[] string) {
@@ -394,7 +388,7 @@ func (player *Player) unequip(modifiers[] string) {
 	}
 
 	// Get item information
-	itemIndex := Find(player.inventory, func (item Item) bool {
+	itemIndex, item := Find(player.inventory, func (item Item) bool {
 		return item.description == modifiers[0]
 	})
 
@@ -402,8 +396,6 @@ func (player *Player) unequip(modifiers[] string) {
 		player.displayError("Item not found within inventory")
 		return
 	}
-
-	item := player.inventory[itemIndex]
 
 	switch item.itemType {
 	case Armour:
@@ -418,7 +410,7 @@ func (player *Player) unequip(modifiers[] string) {
 		}
 
 		player.armour = nil
-		writeToPlayer(player.conn, "Unequiped " + item.description + " as armour")
+		player.write("Unequiped " + item.description + " as armour")
 	case Weapon:
 		if player.weapon == nil {
 			player.displayError("Weapon is not equipped")
@@ -431,7 +423,7 @@ func (player *Player) unequip(modifiers[] string) {
 		}
 
 		player.weapon = nil
-		writeToPlayer(player.conn, "Unequiped " + item.description + " as weapon")
+		player.write("Unequiped " + item.description + " as weapon")
 	default:
 		player.displayError("Item cannot be unequiped")
 	}
@@ -439,17 +431,17 @@ func (player *Player) unequip(modifiers[] string) {
 
 // Quit the game for a player (close the connection)
 func (player *Player) quit(modifiers []string) {
-	writeToPlayer(player.conn, "Farewell " + player.name + "!")
+	player.write("Farewell " + player.name + "!")
 	player.conn.Close()
 }
 
 func (player *Player) help(modifiers []string) {
-	writeToPlayer(player.conn, "Here lies the possible combinations once can enter")
+	player.write("Here lies the possible combinations once can enter")
 
 	for _, action := range GetKeys(player.actions) {
-		writeToPlayerCompact(player.conn, action)
+		player.writeCompact(action)
 	}
-	writeToPlayerCompact(player.conn, "")
+	player.writeCompact("")
 }
 func (player *Player) viewStats(modifiers []string) {
 	player.conn.Write([]byte("\nName : " + player.name + "\n"))
@@ -458,15 +450,15 @@ func (player *Player) viewStats(modifiers []string) {
 	player.conn.Write([]byte("Gold coins: " + strconv.Itoa(player.gold) + "\n"))
 
 	if player.armour == nil {
-		player.conn.Write([]byte("Armour: Not Equiped" + "\n"))
+		player.writeCompact("Armour: Not Equiped")
 	} else {
-		player.conn.Write([]byte("Armour: " + player.armour.description + "\n"))
+		player.writeCompact("Armour: " + player.armour.description)
 	}
 
 	if player.weapon == nil {
-		player.conn.Write([]byte("Weapon: Not Equiped" + "\n"))
+		player.writeCompact("Weapon: Not Equiped")
 	} else {
-		player.conn.Write([]byte("Weapon: " + player.weapon.description + "\n"))
+		player.writeCompact("Weapon: " + player.weapon.description)
 	}
 
 	player.conn.Write([]byte("Inventory contents: "))
@@ -474,12 +466,12 @@ func (player *Player) viewStats(modifiers []string) {
 	for _, item := range player.inventory {
 		player.conn.Write([]byte(item.description + " "))
 	}
-	player.conn.Write([]byte("\n\n"))
+	player.write("")
 }
 
 
 func (player *Player) printMap(modifiers []string) {
-	player.conn.Write([]byte("\n"))
+	player.writeCompact("")
 
 	worldMap := player.currentTown.dungeonLayout
 	for i := 0; i < HEIGHT; i++ {
@@ -492,9 +484,9 @@ func (player *Player) printMap(modifiers []string) {
 				player.conn.Write([]byte("/"))
 			}
 		}
-		player.conn.Write([]byte("\n"))
+		player.writeCompact("")
 	}
-	player.conn.Write([]byte("\n"))
+	player.writeCompact("")
 }
 
 /*
@@ -507,7 +499,7 @@ func (player *Player) buyItem(modifiers []string, items *[]Item) {
 		return
 	}
 
-	itemIndex := Find(*items, func (item Item) bool {
+	itemIndex, item := Find(*items, func (item Item) bool {
 		return item.description == modifiers[0]
 	})
 
@@ -515,8 +507,6 @@ func (player *Player) buyItem(modifiers []string, items *[]Item) {
 		player.displayError("Sorry I do not sell that item")
 		return
 	}
-
-	item := (*items)[itemIndex]
 
 	price := rand.Intn(10) // Generate random price
 
@@ -526,7 +516,7 @@ func (player *Player) buyItem(modifiers []string, items *[]Item) {
 	}
 
 	player.inventory = append(player.inventory, item)
-	writeToPlayer(player.conn, "Purchased " + item.description + " for " + strconv.Itoa(price) + " gold")
+	player.write("Purchased " + item.description + " for " + strconv.Itoa(price) + " gold")
 	player.gold -= price
 	*items = RemoveAtIndex(*items, itemIndex)
 }
@@ -541,7 +531,7 @@ func (player *Player) sellItem(modifiers []string, items *[]Item) {
 		return
 	}
 
-	itemIndex := Find(player.inventory, func (item Item) bool {
+	itemIndex, item := Find(player.inventory, func (item Item) bool {
 		return item.description == modifiers[0]
 	})
 
@@ -550,11 +540,10 @@ func (player *Player) sellItem(modifiers []string, items *[]Item) {
 		return
 	}
 
-	item := player.inventory[itemIndex]
 	price := rand.Intn(10) // Generate random price
 
 	*items = append(*items, item)
-	writeToPlayer(player.conn, "Sold " + item.description + " for " + strconv.Itoa(price) + " gold")
+	player.write("Sold " + item.description + " for " + strconv.Itoa(price) + " gold")
 	player.gold += price
 	player.inventory = RemoveAtIndex(player.inventory, itemIndex)
 }
@@ -579,8 +568,8 @@ func (player *Player) jump(modifiers[]string) {
 	// Move player and provide a random town description
 	player.currentTown = player.currentTown.adjacentTowns[townIndex]
 
-	writeToPlayerCompact(player.conn, "")
-	writeToPlayer(player.conn, player.currentTown.description)
+	player.writeCompact("")
+	player.write(player.currentTown.description)
 	player.listRoutes()
 
 	fmt.Println("test")
@@ -596,7 +585,7 @@ func (player *Player) eat(modifiers []string) {
 		return
 	}
 
-	itemIndex := Find(player.inventory, func (item Item) bool {
+	itemIndex, item := Find(player.inventory, func (item Item) bool {
 		return item.description == modifiers[0]
 	})
 
@@ -605,8 +594,6 @@ func (player *Player) eat(modifiers []string) {
 		return
 	}
 
-	item := player.inventory[itemIndex]
-
 	if item.itemType != Food {
 		player.displayError("You can't eat that")
 		return
@@ -614,19 +601,29 @@ func (player *Player) eat(modifiers []string) {
 
 	player.inventory = RemoveAtIndex(player.inventory, itemIndex)
 	player.health = min(rand.Intn(10) + player.health, 100)
+
+	player.write("Your health is now: " + strconv.Itoa(player.health))
 }
 
 func (player *Player) listRoutes() {
 	for _, route := range player.currentTown.getRoutes() {
-		writeToPlayerCompact(player.conn, route)
+		player.writeCompact(route)
 	}
-	writeToPlayerCompact(player.conn, "")
+	player.writeCompact("")
+}
+
+func (player *Player) write(text string) {
+	player.conn.Write([]byte(text + "\n\n"))
+}
+
+func (player *Player) writeCompact(text string) {
+	player.conn.Write([]byte(text + "\n"))
 }
 
 func (player *Player) displayError(message string) {
 	if message == "" {
-		player.conn.Write([]byte("\nInvalid command \n\n"))
+		player.write("\nInvalid command")
 	} else {
-		player.conn.Write([]byte("\n" + message + "\n\n"))
+		player.write("\n" + message)
 	}
 }

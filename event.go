@@ -44,10 +44,10 @@ var events = map[EventType]func(player *Player, event Event){
 		// Finding a hotspot moves the player to a random location within the dungeon
 		// player.coordinates = findFreeLocationInDungeon()
 
-		writeToPlayer(player.conn, "You have been deported to "+player.coordinates.format())
+		player.write("You have been deported to "+player.coordinates.format())
 
 		// Destroy event
-		eventIndex := Find(player.currentTown.events, func(innerEvent Event) bool {
+		eventIndex, event := Find(player.currentTown.events, func(innerEvent Event) bool {
 			return innerEvent == event
 		})
 
@@ -55,8 +55,8 @@ var events = map[EventType]func(player *Player, event Event){
 	},
 	NPC: func(player *Player, event Event) {
 		// NPC's sell random items to user on their request
-		writeToPlayer(player.conn, "Goodday fellow union member I am "+event.name+"! What would you like to buy?")
-		writeToPlayerCompact(player.conn, "I sell the following items: ")
+		player.write("Goodday fellow union member I am "+event.name+"! What would you like to buy?")
+		player.write("I sell the following items: ")
 
 		allItemsPresent := player.currentTown.items
 		sellableItems := make([]Item, 0)
@@ -66,7 +66,7 @@ var events = map[EventType]func(player *Player, event Event){
 			sellableItems = append(sellableItems, item)
 			player.conn.Write([]byte(item.description + ","))
 		}
-		writeToPlayerCompact(player.conn, "\n")
+		player.writeCompact("\n")
 
 		var options = map[string]func(modifiers []string, items *[]Item){
 			"buy":  player.buyItem,
@@ -84,17 +84,17 @@ var events = map[EventType]func(player *Player, event Event){
 				options[parsedInput[0]](parsedInput[1:len(parsedInput)], &sellableItems)
 			} else {
 				if parsedInput[0] == "leave" {
-					writeToPlayer(player.conn, "Good bye for now!")
+					player.write("Good bye for now!")
 					break
 				} else if parsedInput[0] == "help" {
-					writeToPlayer(player.conn, "You are interacting with an NPC - listed below are the actions you can undertake")
+					player.write("You are interacting with an NPC - listed below are the actions you can undertake")
 					for _, option := range GetKeys(options) {
-						writeToPlayerCompact(player.conn, option)
+						player.writeCompact(option)
 					}
-					writeToPlayerCompact(player.conn, "leave")
-					writeToPlayer(player.conn, "help")
+					player.writeCompact("leave")
+					player.write("help")
 				} else {
-					writeToPlayer(player.conn, "Unknown command")
+					player.write("Unknown command")
 				}
 			}
 		}
@@ -119,37 +119,37 @@ var events = map[EventType]func(player *Player, event Event){
 			if player.weapon != nil {
 				// Select player attack which is based upon minimal/moderate/major
 				level := rand.Intn(len(attacks) - 1)
-				writeToPlayerCompact(player.conn, "Player "+attacks[level][rand.Intn(len(attacks)-1)])
+				player.writeCompact("Player "+attacks[level][rand.Intn(len(attacks)-1)])
 				enemyDamage += level
 			} else {
 				// Select player attack which is based upon minimal/moderate
 				level := rand.Intn(len(attacks) - 2)
-				writeToPlayerCompact(player.conn, "Player "+attacks[level][rand.Intn(len(attacks)-1)])
+				player.writeCompact("Player "+attacks[level][rand.Intn(len(attacks)-1)])
 				enemyDamage += level
 			}
 
 			// Select enemy response which is based upon minimal/moderate
-			writeToPlayerCompact(player.conn, attackResponse[rand.Intn(len(attacks)-2)][rand.Intn(len(attacks)-1)])
+			player.writeCompact(attackResponse[rand.Intn(len(attacks)-2)][rand.Intn(len(attacks)-1)])
 
 			// Select enemy attack which is based upon minimal/moderate/major
 			level := rand.Intn(len(attacks) - 1)
-			writeToPlayerCompact(player.conn, event.name+" "+attacks[level][rand.Intn(len(attacks)-1)])
+			player.writeCompact(event.name+" "+attacks[level][rand.Intn(len(attacks)-1)])
 			playerDamage += level
 
 			// Select player response which is based upon minimal/moderate
-			writeToPlayerCompact(player.conn, attackResponse[rand.Intn(len(attacks)-2)][rand.Intn(len(attacks)-1)])
+			player.writeCompact(attackResponse[rand.Intn(len(attacks)-2)][rand.Intn(len(attacks)-1)])
 		}
 
 		// Pick winner depedning on the number of attacks and select a final major attack and major response
 		if enemyDamage > playerDamage {
-			writeToPlayerCompact(player.conn, "Player "+attacks[2][rand.Intn(len(attacks)-1)])
-			writeToPlayerCompact(player.conn, attackResponse[rand.Intn(len(attacks)-1)][rand.Intn(2-1)+1])
+			player.writeCompact("Player "+attacks[2][rand.Intn(len(attacks)-1)])
+			player.writeCompact(attackResponse[rand.Intn(len(attacks)-1)][rand.Intn(2-1)+1])
 		} else {
-			writeToPlayerCompact(player.conn, event.name+" "+attacks[2][rand.Intn(len(attacks)-1)])
-			writeToPlayerCompact(player.conn, attackResponse[rand.Intn(len(attacks)-1)][rand.Intn(2-1)+1])
+			player.writeCompact(event.name+" "+attacks[2][rand.Intn(len(attacks)-1)])
+			player.writeCompact(attackResponse[rand.Intn(len(attacks)-1)][rand.Intn(2-1)+1])
 		}
 
-		writeToPlayerCompact(player.conn, "")
+		player.writeCompact("")
 
 		player.health -= playerDamage
 	},

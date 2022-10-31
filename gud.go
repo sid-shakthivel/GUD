@@ -28,21 +28,23 @@ $$$$$$/   $$$$$$/  $$$$$$$/
 var nonAlphanumericRegex = regexp.MustCompile(`[^a-zA-Z0-9 ]+`)
 
 func handleConnection(conn net.Conn) {
-	writeToPlayer(conn, BANNER)
+	inventory := make([]Item, 1)
+	inventory[0] = Item{"blonde", Point{15, 8, 0, 0, nil}, true, Random}
+
+	player := NewPlayer(NewPoint(15, 10), conn, "Example", getWorldInstance().towns[0])
+
+	player.write(BANNER)
 
 	// Create new player and retrieve name
-	writeToPlayer(conn, "Good day fellow union member!")
-	writeToPlayer(conn, "By what do you wish to be addressed by?")
+	player.write("Good day fellow union member!")
+	player.write("By what do you wish to be addressed by?")
 
 	nameBytes := make([]byte, 256)
 	_, _ = conn.Read(nameBytes)
 
 	nameStr := nonAlphanumericRegex.ReplaceAllString(string(nameBytes), "")
 
-	inventory := make([]Item, 1)
-	inventory[0] = Item{"blonde", Point{15, 8, 0, 0, nil}, true, Random}
-
-	player := NewPlayer(NewPoint(15, 10), conn, nameStr, getWorldInstance().towns[0])
+	player.name = nameStr
 
 	// Dictionary of actions which players can undertake
 	var actions = map[string]func(modifiers []string){
@@ -64,9 +66,9 @@ func handleConnection(conn net.Conn) {
 
 	player.actions = actions
 
-	writeToPlayer(player.conn, "Welcome to GUD! "+nameStr)
+	player.write("Welcome to GUD! "+nameStr)
 
-	writeToPlayer(player.conn, player.currentTown.description)
+	player.write(player.currentTown.description)
 	player.listRoutes()
 
 	for {
@@ -84,7 +86,7 @@ func handleConnection(conn net.Conn) {
 		if ContainsKey(actions, parsedInput[0]) {
 			actions[parsedInput[0]](parsedInput[1:len(parsedInput)])
 		} else {
-			writeToPlayer(player.conn, "Unknown command")
+			player.write("Unknown command")
 		}
 	}
 }

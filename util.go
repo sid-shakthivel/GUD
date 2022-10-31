@@ -1,7 +1,6 @@
 package main
 
 import (
-	"net"
 	"unicode"
 	"math"
 	"math/rand"
@@ -30,13 +29,13 @@ func isInt(s string) bool {
 	return true
 }
 
-func Find[T any] (s []T, f func(T) bool) int {
+func Find[T any] (s []T, f func(T) bool) (int, T) {
 	for i := range s {
 		if f(s[i]) == true {
-			return i
+			return i, s[i]
 		}
 	}
-	return -1
+	return -1, s[0]
 }
 
 /*
@@ -95,14 +94,6 @@ func GetRandomAndRemove[T any] (s []T) ([]T, T) {
 	element := s[index]
 	s = RemoveAtIndex(s, index)
 	return s, element
-}
-
-func writeToPlayer(conn net.Conn, text string) {
-	conn.Write([]byte(text + "\n\n"))
-}
-
-func writeToPlayerCompact(conn net.Conn, text string) {
-	conn.Write([]byte(text + "\n"))
 }
 
 func calculateHeuristicCost(nodeA Point, nodeB Point) int {
