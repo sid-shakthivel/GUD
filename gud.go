@@ -28,9 +28,6 @@ $$$$$$/   $$$$$$/  $$$$$$$/
 var nonAlphanumericRegex = regexp.MustCompile(`[^a-zA-Z0-9 ]+`)
 
 func handleConnection(conn net.Conn) {
-	inventory := make([]Item, 1)
-	inventory[0] = Item{"blonde", Point{15, 8, 0, 0, nil}, true, Random}
-
 	player := NewPlayer(NewPoint(15, 10), conn, "Example", getWorldInstance().towns[0])
 
 	player.write(BANNER)
@@ -111,16 +108,6 @@ func startServer() {
 }
 
 func main() {
-//	list := List{}
-//	list.Insert(1)
-//	list.Insert(2)
-//
-//	p := list.head
-//	for p != nil {
-//		fmt.Println(p.data)
-//		p = p.next
-//	}
-
 	getWorldInstance()
 	fmt.Println("Game loaded")
 	startServer()

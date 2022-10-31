@@ -40,7 +40,7 @@ func NewWorld() *World {
 
 	var towns []Town
 
-	for i := 0; i < rand.Intn(5) + 2; i++ {
+	for i := 0; i < randNumInRange(2, 6); i++ {
 		// Create new room and add it to slice
 		townNames, townName = GetRandomAndRemove(townNames)
 		newTown := NewTown(townName)
